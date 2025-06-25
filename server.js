@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import cors from 'cors';
+import jwt from 'jsonwebtoken';
 
 // Load environment variables
 dotenv.config();
@@ -75,11 +76,24 @@ const pool = mysql.createPool({
 
 // Auth middleware
 app.use((req, res, next) => {
-  const token = (req.headers['authorization'] || '').split('Bearer ')[1] || false;
-  if (!token || !tokens.includes(token)) {
+  const raw = req.headers['authorization'] || '';
+  const token = raw.split('Bearer ')[1] || false;
+
+  if (!token) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
-  next();
+
+  if (tokens.includes(token)) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
 });
 
 // Dynamically load all routes in ./routes
