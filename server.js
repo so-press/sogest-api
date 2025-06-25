@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+import { getUser } from './inc/users.js';
 
 // Load environment variables
 dotenv.config();
@@ -75,12 +76,12 @@ const pool = mysql.createPool({
 });
 
 // Auth middleware
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const raw = req.headers['authorization'] || '';
   const token = raw.split('Bearer ')[1] || false;
 
   if (!token) {
-    return res.status(403).json({ error: 'Unauthorized' });
+    return res.status(403).json({ error: 'Unauthorized: No token received' });
   }
 
   if (tokens.includes(token)) {
@@ -89,10 +90,11 @@ app.use((req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = await getUser(decoded.id);
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Unauthorized' });
+    console.log(err)
+    return res.status(403).json({ error: 'Unauthorized: Invalid token' });
   }
 });
 

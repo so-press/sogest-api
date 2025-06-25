@@ -38,9 +38,16 @@ router.post('/', handleResponse(async (req, res) => {
     delete user.password;
 
     const token = jwt.sign(
-        { id: user.id, email: user.email, level: user.level, name: user.nom }, // payload
+        {
+            id: user.id,
+            email: user.email,
+            level: user.level,
+            name: user.nom
+        }, 
         process.env.JWT_SECRET,
-        { expiresIn: '7d' } // token valid for 7 days
+        {
+            expiresIn: process.env.JWT_EXPIRATION || '7d'
+        }
     );
 
     return { success: true, token };

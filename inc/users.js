@@ -1,5 +1,12 @@
 import { db } from '../db.js';
 
+export async function getUser(id) {
+    const rsp =  await getUsers({ id });
+
+    if(rsp) {
+        return rsp[0] || false;
+    }
+}
 export async function getUsers({ level = null, id = null, clause = null } = {}) {
     const query = db('users as u')
         .leftJoin('personnes as p', 'u.personne_id', 'p.id')
