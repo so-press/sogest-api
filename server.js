@@ -105,10 +105,15 @@ const routeFiles = fs.readdirSync(routesDir).filter(file => file.endsWith('.js')
 // Import dynamically using top-level await workaround
 const loadRoutes = async () => {
   for (const file of routeFiles) {
-    const route = await import(`./routes/${file}`);
-    const routeName = `/${path.basename(file, '.js')}`;
-    console.log({file, routeName})
-    app.use(routeName, route.default);
+    const routeModule = await import(`./routes/${file}`);
+    const router = routeModule.default;
+    const routePath = routeModule.routePath;
+    if (!routePath) {
+      console.warn(`No routePath specified in ${file}`);
+      continue;
+    }
+    console.log({file, routePath})
+    app.use(routePath, router);
   }
 };
 

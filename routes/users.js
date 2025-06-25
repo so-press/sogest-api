@@ -3,6 +3,8 @@ import { getUsers } from '../inc/users.js';
 import { handleResponse } from '../inc/response.js';
 
 const router = express.Router();
+// Base path for this router
+export const routePath = '/users';
 
 // GET /users/
 router.get('/', handleResponse(async (req, res) => {

@@ -7,6 +7,8 @@ import { handleResponse } from '../inc/response.js';
 
 dotenv.config();
 const router = express.Router();
+// Base path for this router
+export const routePath = '/login';
 
 router.post('/', handleResponse(async (req, res) => {
     const { email, password } = req.body;

@@ -3,6 +3,8 @@ import { getAbsences } from '../inc/absences.js';
 import { handleResponse } from '../inc/response.js';
 
 const router = express.Router();
+// Base path for this router
+export const routePath = '/absences';
 
 router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {
     const { userId, year, month } = req.params;
