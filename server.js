@@ -76,7 +76,7 @@ const pool = mysql.createPool({
 });
 
 // Auth middleware
-app.use(async (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const raw = req.headers['authorization'] || '';
   const token = raw.split('Bearer ')[1] || false;
 
@@ -85,37 +85,55 @@ app.use(async (req, res, next) => {
   }
 
   if (tokens.includes(token)) {
+    req.isJwt = false;
     return next();
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await getUser(decoded.id);
+    req.isJwt = true;
     next();
   } catch (err) {
     console.log(err)
     return res.status(403).json({ error: 'Unauthorized: Invalid token' });
   }
-});
+};
+
+// Middleware to ensure the token is a valid JWT
+const jwtOnlyMiddleware = (req, res, next) => {
+  if (!req.isJwt) {
+    return res.status(403).json({ error: 'Unauthorized: JWT required' });
+  }
+  next();
+};
+
+// Apply auth middleware globally
+app.use(authMiddleware);
 
 // Dynamically load all routes in ./routes
 const routesDir = path.join(__dirname, 'routes');
 const routeFiles = fs.readdirSync(routesDir).filter(file => file.endsWith('.js'));
 
 // Import dynamically using top-level await workaround
-const loadRoutes = async () => {
-  for (const file of routeFiles) {
-    const routeModule = await import(`./routes/${file}`);
-    const router = routeModule.default;
-    const routePath = routeModule.routePath;
-    if (!routePath) {
-      console.warn(`No routePath specified in ${file}`);
-      continue;
+  const loadRoutes = async () => {
+    for (const file of routeFiles) {
+      const routeModule = await import(`./routes/${file}`);
+      const router = routeModule.default;
+      const routePath = routeModule.routePath;
+      const jwtOnly = routeModule.jwtOnly;
+      if (!routePath) {
+        console.warn(`No routePath specified in ${file}`);
+        continue;
+      }
+      console.log({file, routePath})
+      if (jwtOnly) {
+        app.use(routePath, jwtOnlyMiddleware, router);
+      } else {
+        app.use(routePath, router);
+      }
     }
-    console.log({file, routePath})
-    app.use(routePath, router);
-  }
-};
+  };
 
 loadRoutes().then(() => {
   app.listen(port, () => {
