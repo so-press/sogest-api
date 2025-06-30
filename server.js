@@ -121,13 +121,13 @@ const routeFiles = fs.readdirSync(routesDir).filter(file => file.endsWith('.js')
       const routeModule = await import(`./routes/${file}`);
       const router = routeModule.default;
       const routePath = routeModule.routePath;
-      const jwtOnly = routeModule.jwtOnly;
+      const requireAuth = routeModule.requireAuth;
       if (!routePath) {
         console.warn(`No routePath specified in ${file}`);
         continue;
       }
       console.log({file, routePath})
-      if (jwtOnly) {
+      if (requireAuth) {
         app.use(routePath, jwtOnlyMiddleware, router);
       } else {
         app.use(routePath, router);

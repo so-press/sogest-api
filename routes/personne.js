@@ -4,7 +4,7 @@ import { handleResponse } from '../inc/response.js';
 const router = express.Router();
 // Base path for this router
 export const routePath = '/personne';
-export const jwtOnly = true;
+export const requireAuth = true;
 
 router.get('/', handleResponse(async (req, res) => {
     const personne = await getPersonne({ id: req.user.personne_id });

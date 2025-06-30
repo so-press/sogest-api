@@ -42,17 +42,18 @@ router.post('/', handleResponse(async (req, res) => {
     const token = jwt.sign(
         {
             id: user.id,
+            avatar: user.avatar,
             email: user.email,
             level: user.level,
             name: user.nom
-        }, 
+        },
         process.env.JWT_SECRET,
         {
             expiresIn: process.env.JWT_EXPIRATION || '7d'
         }
     );
 
-    return { success: true, token };
+    return { success: true, token, userId: user.id };
 }));
 
 export default router;

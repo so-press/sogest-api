@@ -1,0 +1,23 @@
+meta {
+  name: Personne auth
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base}}/personne
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {"nom":"Testé"}
+}
