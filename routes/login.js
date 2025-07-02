@@ -9,6 +9,18 @@ dotenv.config();
 const router = express.Router();
 // Base path for this router
 export const routePath = '/login';
+/**
+ * @api {post} /login Authenticate user
+ * @apiName Login
+ * @apiGroup Auth
+ * @apiBody {String} email User email.
+ * @apiBody {String} password User password.
+ * @apiSuccess {Boolean} success Indicates success.
+ * @apiSuccess {String} token JWT token.
+ * @apiSuccess {Number} userId ID of the authenticated user.
+ * @apiExample {bruno} Test with Bruno
+ *   See {@link ../doc/Login.bru doc/Login.bru}.
+ */
 
 router.post('/', handleResponse(async (req, res) => {
     const { email, password } = req.body;
