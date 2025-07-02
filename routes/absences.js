@@ -6,6 +6,19 @@ const router = express.Router();
 // Base path for this router
 export const routePath = '/absences';
 
+/**
+ * @api {get} /absences/:userId/:year?/:month? Get absences for a user
+ * @apiName GetAbsences
+ * @apiGroup Absences
+ * @apiHeader {String} Authorization Bearer token or JWT.
+ * @apiParam {Number} userId User identifier.
+ * @apiParam {Number} [year] Year filter.
+ * @apiParam {Number{1-12}} [month] Month filter.
+ * @apiSuccess {Object[]} data Array of absence records.
+ * @apiExample {bruno} Test with Bruno
+ *   See {@link ../doc/Absences.bru doc/Absences.bru}.
+ */
+
 router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {
     const { userId, year, month } = req.params;
     const rows = await getAbsences({
