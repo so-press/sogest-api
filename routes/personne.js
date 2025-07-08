@@ -7,11 +7,10 @@ export const routePath = '/personne';
 export const requireAuth = true;
 
 /**
- * Récupère les informations de la personne connectée.
- *
- * @route GET /
- * @returns {Object} Informations personnelles de l'utilisateur.
- * @throws {Error} En cas d’erreur lors de la récupération.
+ * @api {get} /personne Infos utilisateur connecté
+ * @apiName GetCurrentPersonne
+ * @apiGroup Personnes
+ * @apiSuccess {Object} personne Informations de la personne
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -20,12 +19,11 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * Met à jour les informations de la personne connectée.
- *
- * @route PUT /
- * @param {Object} req.body - Données à mettre à jour.
- * @returns {Object} Données mises à jour.
- * @throws {Error} En cas d’erreur lors de la mise à jour.
+ * @api {put} /personne Mise à jour de la personne connectée
+ * @apiName UpdateCurrentPersonne
+ * @apiGroup Personnes
+ * @apiBody {Object} body Données de mise à jour
+ * @apiSuccess {Object} personne Données mises à jour
  */
 
 router.put('/', handleResponse(async (req, res) => {
@@ -37,3 +35,4 @@ router.put('/', handleResponse(async (req, res) => {
     }
 }));
 export default router;
+

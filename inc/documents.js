@@ -1,9 +1,19 @@
+/**
+ * @namespace Documents
+ */
 import { db } from '../db.js';
 import { getContrats } from './contrats.js';
 import { getPiges } from './piges.js';
 import { sogestBaseUrl, sogestUrl } from './sogest.js';
 import { kebabToCamel, md5, choseDate } from './utils.js';
 
+/**
+ * Récupère l'ensemble des documents liés à une personne.
+ *
+ * @param {number} personneId - Identifiant de la personne
+ * @param {Object} [options] - Options de filtrage
+ * @returns {Promise<Object[]>} Liste formatée des documents
+ */
 export async function getDocumentsForPersonne(personneId, options = {}) {
     const contrats = await getContrats(personneId);
     const piges = await getPiges(personneId, { type: 'da' });
@@ -50,6 +60,12 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
 
 
 
+/**
+ * Retourne les documents téléversés pour une personne.
+ *
+ * @param {number} personneId - Identifiant de la personne
+ * @returns {Promise<Object>} Documents classés par type
+ */
 export async function getUploadedDocuments(personneId) {
     const query = db('documents')
         .select('*')
@@ -70,6 +86,7 @@ export async function getUploadedDocuments(personneId) {
     })
     return all;
 }
+
 
 
 

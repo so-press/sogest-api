@@ -1,6 +1,14 @@
+/**
+ * @namespace Personnes
+ */
 import { db } from '../db.js';
 import { removeAccents, slugify, toDate } from './utils.js';
 
+/**
+ * Retourne la liste des personnes actives.
+ *
+ * @returns {Promise<Object[]>} Liste des personnes formatées
+ */
 export async function getPersonnes() {
 
   const query = db('personnes')
@@ -11,6 +19,14 @@ export async function getPersonnes() {
   return (await query).map(formaterPersonne);
 }
 
+/**
+ * Récupère une personne selon des critères optionnels.
+ *
+ * @param {Object} [options]
+ * @param {number} [options.user_id] - Identifiant lié à l'utilisateur
+ * @param {number} [options.id] - Identifiant de la personne
+ * @returns {Promise<Object|undefined>} Personne ou undefined
+ */
 export async function getPersonne(options = {}) {
   const user_id = options.user_id || null;
   const id = options.id || options.personne_id || null;
@@ -30,10 +46,23 @@ export async function getPersonne(options = {}) {
   return formaterPersonne(await query.first()); // returns only one row
 }
 
+/**
+ * Formate une entrée personne issue de la base.
+ *
+ * @param {Object} personne - Données brutes de la personne
+ * @returns {Object} Données formatées
+ */
 function formaterPersonne(personne) {
   personne.date_naissance = toDate(personne.date_naissance)
   return personne;
 }
+/**
+ * Met à jour une personne dans la base.
+ *
+ * @param {number} id - Identifiant de la personne
+ * @param {Object} data - Données à mettre à jour
+ * @returns {Promise<number>} Nombre de lignes modifiées
+ */
 export async function updatePersonne(id, data) {
   if (!data) return;
   const allowedFields = [
@@ -92,3 +121,4 @@ export async function updatePersonne(id, data) {
     .where({ id })
     .update(updateData);
 }
+

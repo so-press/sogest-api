@@ -1,5 +1,14 @@
+/**
+ * @namespace Users
+ */
 import { db } from '../db.js';
 
+/**
+ * Récupère un utilisateur par son identifiant.
+ *
+ * @param {number} id - Identifiant de l'utilisateur
+ * @returns {Promise<Object|false>} Utilisateur ou false si introuvable
+ */
 export async function getUser(id) {
     const rsp =  await getUsers({ id });
 
@@ -7,6 +16,15 @@ export async function getUser(id) {
         return rsp[0] || false;
     }
 }
+/**
+ * Récupère une liste d'utilisateurs selon différents critères.
+ *
+ * @param {Object} [options]
+ * @param {number} [options.level] - Filtrer par niveau
+ * @param {number} [options.id] - Filtrer par identifiant
+ * @param {Object} [options.clause] - Clause personnalisée
+ * @returns {Promise<Object[]>} Utilisateurs formatés
+ */
 export async function getUsers({ level = null, id = null, clause = null } = {}) {
     const query = db('users as u')
         .leftJoin('personnes as p', 'u.personne_id', 'p.id')
@@ -40,6 +58,12 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
     return users.map(formatUser);
 }
 
+/**
+ * Recherche un utilisateur par son adresse e-mail.
+ *
+ * @param {string} email - Adresse e-mail à rechercher
+ * @returns {Promise<Object|undefined>} Utilisateur trouvé ou undefined
+ */
 export async function getUserByEmail(email) {
     // First try: match against primary email field
     const user = await db('users')
@@ -55,6 +79,12 @@ export async function getUserByEmail(email) {
 }
 
 
+/**
+ * Formate les données d'un utilisateur récupérées en base.
+ *
+ * @param {Object} user - Données brutes
+ * @returns {Object|undefined} Données formatées
+ */
 function formatUser(user) {
     if (!user) return;
     if (user.emails_alternatifs)

@@ -6,11 +6,10 @@ const router = express.Router();
 export const routePath = '/personnes';
 
 /**
- * Récupère la liste complète des personnes.
- *
- * @route GET /personnes
- * @returns {Object[]} Liste des personnes.
- * @throws {Error} En cas d’échec lors de la récupération.
+ * @api {get} /personnes Liste des personnes
+ * @apiName GetPersonnes
+ * @apiGroup Personnes
+ * @apiSuccess {Object[]} personnes Liste des personnes
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -20,12 +19,11 @@ router.get('/', handleResponse(async (req, res) => {
 
 
 /**
- * Récupère les informations d'une personne spécifique selon son ID.
- *
- * @route GET /personnes/:id
- * @param {string} req.params.id - ID de la personne.
- * @returns {Object} Données de la personne demandée.
- * @throws {Error} Si la personne est introuvable ou en cas d’erreur serveur.
+ * @api {get} /personnes/:id Détails d'une personne
+ * @apiName GetPersonne
+ * @apiGroup Personnes
+ * @apiParam {Number} id ID de la personne
+ * @apiSuccess {Object} personne Données de la personne
  */
 router.get('/:id', handleResponse(async (req, res) => {
   const personne = await getPersonne({ id: req.params.id });
@@ -34,13 +32,12 @@ router.get('/:id', handleResponse(async (req, res) => {
 
 
 /**
- * Met à jour les données d'une personne spécifique.
- *
- * @route PUT /personnes/:id
- * @param {string} req.params.id - ID de la personne à mettre à jour.
- * @param {Object} req.body - Données mises à jour.
- * @returns {Object} Données de la personne après modification.
- * @throws {Error} En cas d’échec de la mise à jour ou d’erreur serveur.
+ * @api {put} /personnes/:id Mise à jour d'une personne
+ * @apiName UpdatePersonne
+ * @apiGroup Personnes
+ * @apiParam {Number} id ID de la personne à modifier
+ * @apiBody {Object} body Données à mettre à jour
+ * @apiSuccess {Object} personne Données modifiées
  */
 router.put('/:id', handleResponse(async (req, res) => {
   const id = req.params.id;
@@ -52,3 +49,4 @@ router.put('/:id', handleResponse(async (req, res) => {
 }));
 
 export default router;
+
