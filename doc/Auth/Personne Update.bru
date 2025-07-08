@@ -1,11 +1,11 @@
 meta {
-  name: Personne auth
+  name: Personne Update
   type: http
-  seq: 8
+  seq: 9
 }
 
-get {
-  url: {{base}}/personne
+put {
+  url: {{base}}/personnes/340
   body: json
   auth: bearer
 }
@@ -15,7 +15,7 @@ headers {
 }
 
 auth:bearer {
-  token: {{jwtToken}}
+  token: {{token}}
 }
 
 body:json {

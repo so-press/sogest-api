@@ -1,12 +1,12 @@
 meta {
-  name: Personnes
+  name: Personne auth
   type: http
-  seq: 5
+  seq: 6
 }
 
 get {
-  url: {{base}}/personnes
-  body: none
+  url: {{base}}/personne
+  body: json
   auth: bearer
 }
 
@@ -15,5 +15,5 @@ headers {
 }
 
 auth:bearer {
-  token: {{token}}
+  token: {{jwtToken}}
 }
