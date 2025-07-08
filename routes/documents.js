@@ -12,10 +12,15 @@ export const routePath = '/documents';
 export const requireAuth = true;
 
 /**
- * @api {get} /documents Documents de l'utilisateur
- * @apiName GetDocuments
- * @apiGroup Documents
- * @apiSuccess {Object[]} documents Liste des documents
+ * @openapi
+ * /documents:
+ *   get:
+ *     summary: Documents de l'utilisateur
+ *     tags:
+ *       - Documents
+ *     responses:
+ *       200:
+ *         description: Liste des documents
  */
 
 router.get('/', handleResponse(async (req, res) => {

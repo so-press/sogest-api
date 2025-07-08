@@ -5,9 +5,10 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
 import { getUser } from './inc/users.js';
 
 // routes
@@ -42,6 +43,23 @@ const tokens = Object.values(config.tokens);
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || 3000;
+
+// Swagger setup
+const swaggerDefinition = {
+  openapi: '3.0.0',
+  info: {
+    title: 'Sogest API',
+    version: '1.0.0'
+  }
+};
+const swaggerOptions = {
+  definition: swaggerDefinition,
+  apis: [path.join(__dirname, 'routes', '*.js')]
+};
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+fs.mkdirSync(path.join(__dirname, 'doc'), { recursive: true });
+fs.writeFileSync(path.join(__dirname, 'doc', 'swagger.json'), JSON.stringify(swaggerSpec, null, 2));
+app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
 const allowedRaw = (process.env.ALLOWED_DOMAINS || '')
@@ -125,7 +143,6 @@ const jwtOnlyMiddleware = (req, res, next) => {
   next();
 };
 
-app.use('/doc', express.static(path.join(__dirname, 'doc')));
 
 
 // Apply auth middleware globally
