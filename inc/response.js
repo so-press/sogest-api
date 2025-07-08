@@ -1,5 +1,14 @@
+/**
+ * @namespace Response
+ */
 // inc/handleResponse.js
 
+/**
+ * Wrapper générique pour gérer les réponses et erreurs.
+ *
+ * @param {Function} handler - Fonction asynchrone exécutant la logique
+ * @returns {Function} Middleware Express
+ */
 export function handleResponse(handler) {
   return async (req, res, next) => {
     try {
@@ -62,3 +71,4 @@ export function handleResponse(handler) {
     }
   };
 }
+

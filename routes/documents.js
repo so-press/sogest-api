@@ -12,11 +12,10 @@ export const routePath = '/documents';
 export const requireAuth = true;
 
 /**
- * Récupère la liste des documents disponibles pour l'utilisateur authentifié.
- *
- * @route GET /
- * @returns {Object[]} Liste des documents.
- * @throws {Error} En cas d’erreur lors de la récupération des documents.
+ * @api {get} /documents Documents de l'utilisateur
+ * @apiName GetDocuments
+ * @apiGroup Documents
+ * @apiSuccess {Object[]} documents Liste des documents
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -29,3 +28,4 @@ router.get('/', handleResponse(async (req, res) => {
 
 
 export default router;
+

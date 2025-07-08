@@ -1,8 +1,19 @@
+/**
+ * @namespace Piges
+ */
 import { db } from '../db.js';
 import { sogestUrl } from './sogest.js';
 import { kebabToCamel, slugify } from './utils.js';
 
 
+/**
+ * Récupère les piges d'une personne.
+ *
+ * @param {number} personneId - Identifiant de la personne
+ * @param {Object} [options]
+ * @param {string} [options.type] - Filtrer sur un type de contenu
+ * @returns {Promise<Object>} Piges regroupées par type
+ */
 export async function getPiges(personneId, options = {}) {
     const type_contenu = options.type || '';
 
@@ -40,6 +51,10 @@ export async function getPiges(personneId, options = {}) {
 
 
 
+/**
+ * Récupère la liste des tarifs pour les droits d'auteur.
+ * @returns {Promise<Object[]>} Tarifs disponibles
+ */
 async function getTarifsDa() {
     const tarifs = await db('tarifs')
         .leftJoin('contenus', 'contenus.id', 'tarifs.contenu_id')

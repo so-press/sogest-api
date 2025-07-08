@@ -10,13 +10,12 @@ const router = express.Router();
 // Base path for this router
 export const routePath = '/login';
 /**
- * Authentifie un utilisateur avec son identifiant et mot de passe.
- *
- * @route POST /
- * @param {string} req.body.email - Adresse email de l’utilisateur.
- * @param {string} req.body.password - Mot de passe de l’utilisateur.
- * @returns {Object} Objet contenant les informations de session ou de token.
- * @throws {Error} En cas d’échec d’authentification.
+ * @api {post} /login Authentification
+ * @apiName Login
+ * @apiGroup Auth
+ * @apiBody {String} email Email de l'utilisateur
+ * @apiBody {String} password Mot de passe
+ * @apiSuccess {Object} session Informations de session
  */
 
 router.post('/', handleResponse(async (req, res) => {
@@ -65,3 +64,4 @@ router.post('/', handleResponse(async (req, res) => {
 }));
 
 export default router;
+
