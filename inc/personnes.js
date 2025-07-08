@@ -5,9 +5,11 @@ import { db } from '../db.js';
 import { removeAccents, slugify, toDate } from './utils.js';
 
 /**
- * Retourne la liste des personnes actives.
+ * @api {function} getPersonnes Retourne la liste des personnes actives
+ * @apiName GetPersonnesFunc
+ * @apiGroup Personnes
  *
- * @returns {Promise<Object[]>} Liste des personnes formatées
+ * @apiSuccess {Object[]} personnes Liste des personnes formatées
  */
 export async function getPersonnes() {
 
@@ -20,12 +22,15 @@ export async function getPersonnes() {
 }
 
 /**
- * Récupère une personne selon des critères optionnels.
+ * @api {function} getPersonne Récupère une personne selon des critères optionnels
+ * @apiName GetPersonneFunc
+ * @apiGroup Personnes
  *
- * @param {Object} [options]
- * @param {number} [options.user_id] - Identifiant lié à l'utilisateur
- * @param {number} [options.id] - Identifiant de la personne
- * @returns {Promise<Object|undefined>} Personne ou undefined
+ * @apiParam {Object} [options]
+ * @apiParam {Number} [options.user_id] Identifiant lié à l'utilisateur
+ * @apiParam {Number} [options.id] Identifiant de la personne
+ *
+ * @apiSuccess {Object|undefined} personne Personne ou undefined
  */
 export async function getPersonne(options = {}) {
   const user_id = options.user_id || null;
@@ -57,11 +62,14 @@ function formaterPersonne(personne) {
   return personne;
 }
 /**
- * Met à jour une personne dans la base.
+ * @api {function} updatePersonne Met à jour une personne dans la base
+ * @apiName UpdatePersonneFunc
+ * @apiGroup Personnes
  *
- * @param {number} id - Identifiant de la personne
- * @param {Object} data - Données à mettre à jour
- * @returns {Promise<number>} Nombre de lignes modifiées
+ * @apiParam {Number} id Identifiant de la personne
+ * @apiParam {Object} data Données à mettre à jour
+ *
+ * @apiSuccess {Number} updated Nombre de lignes modifiées
  */
 export async function updatePersonne(id, data) {
   if (!data) return;

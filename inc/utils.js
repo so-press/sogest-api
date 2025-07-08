@@ -5,30 +5,39 @@ import dayjs from 'dayjs';
 import { createHash } from 'node:crypto';
 
 /**
- * Formate une date au format YYYY-MM-DD.
+ * @api {function} toDate Formate une date au format YYYY-MM-DD
+ * @apiName ToDate
+ * @apiGroup Utils
  *
- * @param {Date|string} date - Date à formater
- * @returns {string} Date formatée
+ * @apiParam {(Date|String)} date Date à formater
+ *
+ * @apiSuccess {String} date Date formatée
  */
 export function toDate(date) {
   return dayjs(date).format('YYYY-MM-DD')
 }
 
 /**
- * Supprime les accents d'une chaîne de caractères.
+ * @api {function} removeAccents Supprime les accents d'une chaîne de caractères
+ * @apiName RemoveAccents
+ * @apiGroup Utils
  *
- * @param {string} str - Chaîne à nettoyer
- * @returns {string} Chaîne sans accents
+ * @apiParam {String} str Chaîne à nettoyer
+ *
+ * @apiSuccess {String} cleaned Chaîne sans accents
  */
 export function removeAccents(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 /**
- * Transforme plusieurs chaînes en un slug.
+ * @api {function} slugify Transforme plusieurs chaînes en un slug
+ * @apiName Slugify
+ * @apiGroup Utils
  *
- * @param {...string} args - Chaînes à concaténer
- * @returns {string} Slug généré
+ * @apiParam {...String} args Chaînes à concaténer
+ *
+ * @apiSuccess {String} slug Slug généré
  */
 export function slugify(...args) {
   const full = args.join(' ');
@@ -41,9 +50,11 @@ export function slugify(...args) {
 }
 
 /**
- * Convertit une chaîne kebab-case en camelCase
- * @param {string} str - La chaîne à convertir
- * @returns {string} La chaîne convertie en camelCase
+ * @api {function} kebabToCamel Convertit une chaîne kebab-case en camelCase
+ * @apiName KebabToCamel
+ * @apiGroup Utils
+ * @apiParam {String} str La chaîne à convertir
+ * @apiSuccess {String} camel La chaîne convertie en camelCase
  */
 export function kebabToCamel(str) {
   return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
@@ -51,9 +62,11 @@ export function kebabToCamel(str) {
 
 
 /**
- * Convertit une chaîne camelCase en kebab-case
- * @param {string} str - La chaîne à convertir
- * @returns {string} La chaîne convertie en kebab-case
+ * @api {function} camelToKebab Convertit une chaîne camelCase en kebab-case
+ * @apiName CamelToKebab
+ * @apiGroup Utils
+ * @apiParam {String} str La chaîne à convertir
+ * @apiSuccess {String} kebab La chaîne convertie en kebab-case
  */
 export function camelToKebab(str) {
   return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
@@ -63,18 +76,22 @@ export function camelToKebab(str) {
 
 
 /**
- * Calcule le hachage MD5 d'une chaîne.
- * @param {string} str - Chaîne source
- * @returns {string} Hash MD5
+ * @api {function} md5 Calcule le hachage MD5 d'une chaîne
+ * @apiName Md5
+ * @apiGroup Utils
+ * @apiParam {String} str Chaîne source
+ * @apiSuccess {String} hash Hash MD5
  */
 export function md5(str) {
   return createHash('md5').update(str).digest('hex');
 }
 
 /**
- * Retourne la première date valide parmi la liste fournie.
- * @param {...(Date|string)} args - Dates potentielles
- * @returns {Date|null} Date valide ou null
+ * @api {function} choseDate Retourne la première date valide parmi la liste fournie
+ * @apiName ChoseDate
+ * @apiGroup Utils
+ * @apiParam {...(Date|String)} args Dates potentielles
+ * @apiSuccess {(Date|null)} date Date valide ou null
  */
 export function choseDate(...args) {
     for (const arg of args) {

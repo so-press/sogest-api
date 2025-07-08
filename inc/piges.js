@@ -7,12 +7,15 @@ import { kebabToCamel, slugify } from './utils.js';
 
 
 /**
- * Récupère les piges d'une personne.
+ * @api {function} getPiges Récupère les piges d'une personne
+ * @apiName GetPiges
+ * @apiGroup Piges
  *
- * @param {number} personneId - Identifiant de la personne
- * @param {Object} [options]
- * @param {string} [options.type] - Filtrer sur un type de contenu
- * @returns {Promise<Object>} Piges regroupées par type
+ * @apiParam {Number} personneId Identifiant de la personne
+ * @apiParam {Object} [options]
+ * @apiParam {String} [options.type] Filtrer sur un type de contenu
+ *
+ * @apiSuccess {Object} piges Piges regroupées par type
  */
 export async function getPiges(personneId, options = {}) {
     const type_contenu = options.type || '';

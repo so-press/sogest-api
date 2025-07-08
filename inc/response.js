@@ -4,10 +4,13 @@
 // inc/handleResponse.js
 
 /**
- * Wrapper générique pour gérer les réponses et erreurs.
+ * @api {function} handleResponse Wrapper générique pour gérer les réponses et erreurs
+ * @apiName HandleResponse
+ * @apiGroup Response
  *
- * @param {Function} handler - Fonction asynchrone exécutant la logique
- * @returns {Function} Middleware Express
+ * @apiParam {Function} handler Fonction asynchrone exécutant la logique
+ *
+ * @apiSuccess {Function} middleware Middleware Express
  */
 export function handleResponse(handler) {
   return async (req, res, next) => {

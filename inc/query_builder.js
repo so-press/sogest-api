@@ -3,7 +3,11 @@
  */
 export class QueryBuilder {
   /**
-   * @param {string} base - Base de la requête SQL
+   * @api {function} QueryBuilder Constructeur
+   * @apiName QueryBuilder
+   * @apiGroup QueryBuilder
+   *
+   * @apiParam {String} base Base de la requête SQL
    */
   constructor(base) {
     this.sql = base;
@@ -13,10 +17,12 @@ export class QueryBuilder {
   }
 
   /**
-   * Ajoute une condition WHERE
-   * @param {string} condition - Condition SQL
-   * @param {*} param - Valeur associée
-   * @returns {QueryBuilder}
+   * @api {function} where Ajoute une condition WHERE
+   * @apiName QueryWhere
+   * @apiGroup QueryBuilder
+   * @apiParam {String} condition Condition SQL
+   * @apiParam {*} param Valeur associée
+   * @apiSuccess {QueryBuilder} builder Instance courante
    */
   where(condition, param) {
     this.conditions.push(condition);
@@ -25,16 +31,20 @@ export class QueryBuilder {
   }
 
   /**
-   * Alias de {@link where}
+   * @api {function} and Alias de where
+   * @apiName QueryAnd
+   * @apiGroup QueryBuilder
    */
   and(condition, param) {
     return this.where(condition, param);
   }
 
   /**
-   * Ajoute un ORDER BY
-   * @param {string} order - Clause ORDER BY
-   * @returns {QueryBuilder}
+   * @api {function} orderBy Ajoute un ORDER BY
+   * @apiName QueryOrderBy
+   * @apiGroup QueryBuilder
+   * @apiParam {String} order Clause ORDER BY
+   * @apiSuccess {QueryBuilder} builder Instance courante
    */
   orderBy(order) {
     this.order = order;
@@ -42,8 +52,10 @@ export class QueryBuilder {
   }
 
   /**
-   * Construit la requête complète
-   * @returns {{sql:string, params:Array}}
+   * @api {function} build Construit la requête complète
+   * @apiName QueryBuild
+   * @apiGroup QueryBuilder
+   * @apiSuccess {Object} query Objet contenant la chaîne SQL et les paramètres
    */
   build() {
     let fullQuery = this.sql;

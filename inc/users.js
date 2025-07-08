@@ -4,10 +4,13 @@
 import { db } from '../db.js';
 
 /**
- * Récupère un utilisateur par son identifiant.
+ * @api {function} getUser Récupère un utilisateur par son identifiant
+ * @apiName GetUserFunc
+ * @apiGroup Users
  *
- * @param {number} id - Identifiant de l'utilisateur
- * @returns {Promise<Object|false>} Utilisateur ou false si introuvable
+ * @apiParam {Number} id Identifiant de l'utilisateur
+ *
+ * @apiSuccess {Object|false} user Utilisateur ou false si introuvable
  */
 export async function getUser(id) {
     const rsp =  await getUsers({ id });
@@ -17,13 +20,16 @@ export async function getUser(id) {
     }
 }
 /**
- * Récupère une liste d'utilisateurs selon différents critères.
+ * @api {function} getUsers Récupère une liste d'utilisateurs selon différents critères
+ * @apiName GetUsersFunc
+ * @apiGroup Users
  *
- * @param {Object} [options]
- * @param {number} [options.level] - Filtrer par niveau
- * @param {number} [options.id] - Filtrer par identifiant
- * @param {Object} [options.clause] - Clause personnalisée
- * @returns {Promise<Object[]>} Utilisateurs formatés
+ * @apiParam {Object} [options]
+ * @apiParam {Number} [options.level] Filtrer par niveau
+ * @apiParam {Number} [options.id] Filtrer par identifiant
+ * @apiParam {Object} [options.clause] Clause personnalisée
+ *
+ * @apiSuccess {Object[]} users Utilisateurs formatés
  */
 export async function getUsers({ level = null, id = null, clause = null } = {}) {
     const query = db('users as u')
@@ -59,10 +65,13 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
 }
 
 /**
- * Recherche un utilisateur par son adresse e-mail.
+ * @api {function} getUserByEmail Recherche un utilisateur par son adresse e-mail
+ * @apiName GetUserByEmail
+ * @apiGroup Users
  *
- * @param {string} email - Adresse e-mail à rechercher
- * @returns {Promise<Object|undefined>} Utilisateur trouvé ou undefined
+ * @apiParam {String} email Adresse e-mail à rechercher
+ *
+ * @apiSuccess {Object|undefined} user Utilisateur trouvé ou undefined
  */
 export async function getUserByEmail(email) {
     // First try: match against primary email field

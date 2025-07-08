@@ -8,11 +8,14 @@ import { sogestBaseUrl, sogestUrl } from './sogest.js';
 import { kebabToCamel, md5, choseDate } from './utils.js';
 
 /**
- * Récupère l'ensemble des documents liés à une personne.
+ * @api {function} getDocumentsForPersonne Récupère l'ensemble des documents liés à une personne
+ * @apiName GetDocumentsForPersonne
+ * @apiGroup Documents
  *
- * @param {number} personneId - Identifiant de la personne
- * @param {Object} [options] - Options de filtrage
- * @returns {Promise<Object[]>} Liste formatée des documents
+ * @apiParam {Number} personneId Identifiant de la personne
+ * @apiParam {Object} [options] Options de filtrage
+ *
+ * @apiSuccess {Object[]} documents Liste formatée des documents
  */
 export async function getDocumentsForPersonne(personneId, options = {}) {
     const contrats = await getContrats(personneId);
@@ -61,10 +64,13 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
 
 
 /**
- * Retourne les documents téléversés pour une personne.
+ * @api {function} getUploadedDocuments Retourne les documents téléversés pour une personne
+ * @apiName GetUploadedDocuments
+ * @apiGroup Documents
  *
- * @param {number} personneId - Identifiant de la personne
- * @returns {Promise<Object>} Documents classés par type
+ * @apiParam {Number} personneId Identifiant de la personne
+ *
+ * @apiSuccess {Object} documents Documents classés par type
  */
 export async function getUploadedDocuments(personneId) {
     const query = db('documents')
