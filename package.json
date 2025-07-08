@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "docs": "jsdoc -c jsdoc.json",
+    "docs": "apidoc -i routes/ -o doc/",
     "postinstall": "npm run docs"
   },
   "author": "",
@@ -23,9 +23,8 @@
     "mysql2": "^3.14.1"
   },
   "devDependencies": {
-    "better-docs": "^2.7.3",
+    "apidoc": "^1.2.0",
     "docdash": "^2.0.2",
-    "jsdoc": "^4.0.4",
     "nodemon": "^3.1.10"
   }
 }
