@@ -1,0 +1,23 @@
+meta {
+  name: Personne Update
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base}}/personne
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {"nom":"un nom de famille"}
+}

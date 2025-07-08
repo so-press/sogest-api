@@ -1,0 +1,19 @@
+meta {
+  name: Contrat
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://sogest-recette.sopress.net/contrat.php?contrat_id=9856
+  body: none
+  auth: bearer
+}
+
+params:query {
+  contrat_id: 9856
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

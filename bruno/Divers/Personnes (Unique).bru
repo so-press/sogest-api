@@ -1,0 +1,19 @@
+meta {
+  name: Personnes (Unique)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base}}/personnes/{{personneId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
