@@ -6,10 +6,15 @@ const router = express.Router();
 export const routePath = '/personnes';
 
 /**
- * @api {get} /personnes Liste des personnes
- * @apiName GetPersonnes
- * @apiGroup Personnes
- * @apiSuccess {Object[]} personnes Liste des personnes
+ * @openapi
+ * /personnes:
+ *   get:
+ *     summary: Liste des personnes
+ *     tags:
+ *       - Personnes
+ *     responses:
+ *       200:
+ *         description: Liste des personnes
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -19,11 +24,21 @@ router.get('/', handleResponse(async (req, res) => {
 
 
 /**
- * @api {get} /personnes/:id Détails d'une personne
- * @apiName GetPersonne
- * @apiGroup Personnes
- * @apiParam {Number} id ID de la personne
- * @apiSuccess {Object} personne Données de la personne
+ * @openapi
+ * /personnes/{id}:
+ *   get:
+ *     summary: Détails d'une personne
+ *     tags:
+ *       - Personnes
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Données de la personne
  */
 router.get('/:id', handleResponse(async (req, res) => {
   const personne = await getPersonne({ id: req.params.id });
@@ -32,12 +47,27 @@ router.get('/:id', handleResponse(async (req, res) => {
 
 
 /**
- * @api {put} /personnes/:id Mise à jour d'une personne
- * @apiName UpdatePersonne
- * @apiGroup Personnes
- * @apiParam {Number} id ID de la personne à modifier
- * @apiBody {Object} body Données à mettre à jour
- * @apiSuccess {Object} personne Données modifiées
+ * @openapi
+ * /personnes/{id}:
+ *   put:
+ *     summary: Mise à jour d'une personne
+ *     tags:
+ *       - Personnes
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Données modifiées
  */
 router.put('/:id', handleResponse(async (req, res) => {
   const id = req.params.id;

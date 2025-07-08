@@ -7,10 +7,15 @@ export const routePath = '/personne';
 export const requireAuth = true;
 
 /**
- * @api {get} /personne Infos utilisateur connecté
- * @apiName GetCurrentPersonne
- * @apiGroup Personnes
- * @apiSuccess {Object} personne Informations de la personne
+ * @openapi
+ * /personne:
+ *   get:
+ *     summary: Infos utilisateur connecté
+ *     tags:
+ *       - Personnes
+ *     responses:
+ *       200:
+ *         description: Informations de la personne
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -19,11 +24,21 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {put} /personne Mise à jour de la personne connectée
- * @apiName UpdateCurrentPersonne
- * @apiGroup Personnes
- * @apiBody {Object} body Données de mise à jour
- * @apiSuccess {Object} personne Données mises à jour
+ * @openapi
+ * /personne:
+ *   put:
+ *     summary: Mise à jour de la personne connectée
+ *     tags:
+ *       - Personnes
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Données mises à jour
  */
 
 router.put('/', handleResponse(async (req, res) => {

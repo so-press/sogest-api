@@ -8,10 +8,15 @@ export const routePath = '/users';
 
 
 /**
- * @api {get} /users Liste des utilisateurs
- * @apiName GetUsers
- * @apiGroup Users
- * @apiSuccess {Object[]} users Liste des utilisateurs
+ * @openapi
+ * /users:
+ *   get:
+ *     summary: Liste des utilisateurs
+ *     tags:
+ *       - Users
+ *     responses:
+ *       200:
+ *         description: Liste des utilisateurs
  */
 router.get('/', handleResponse(async (req, res) => {
     const rows = await getUsers();
@@ -19,11 +24,21 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /users/:id Détails d'un utilisateur
- * @apiName GetUser
- * @apiGroup Users
- * @apiParam {Number} id ID de l'utilisateur
- * @apiSuccess {Object} user Informations de l'utilisateur
+ * @openapi
+ * /users/{id}:
+ *   get:
+ *     summary: Détails d'un utilisateur
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Informations de l'utilisateur
  */
 router.get('/:id', handleResponse(async (req, res) => {
     const rows = await getUsers({ id: req.params.id });
@@ -44,11 +59,21 @@ router.get('/:id', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /users/level/:level Utilisateurs par niveau
- * @apiName GetUsersByLevel
- * @apiGroup Users
- * @apiParam {String} level Niveau d'accès
- * @apiSuccess {Object[]} users Utilisateurs correspondants
+ * @openapi
+ * /users/level/{level}:
+ *   get:
+ *     summary: Utilisateurs par niveau
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: path
+ *         name: level
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Utilisateurs correspondants
  */
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });

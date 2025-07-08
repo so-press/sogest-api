@@ -7,13 +7,31 @@ const router = express.Router();
 export const routePath = '/absences';
 
 /**
- * @api {get} /absences/:userId/:year?/:month? Liste des absences
- * @apiName GetAbsences
- * @apiGroup Absences
- * @apiParam {Number} userId ID de l'utilisateur
- * @apiParam {Number} [year] Année optionnelle
- * @apiParam {Number} [month] Mois optionnel
- * @apiSuccess {Object[]} absences Liste des absences
+ * @openapi
+ * /absences/{userId}/{year}/{month}:
+ *   get:
+ *     summary: Liste des absences
+ *     tags:
+ *       - Absences
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: year
+ *         required: false
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: month
+ *         required: false
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Liste des absences
  */
 
 router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {

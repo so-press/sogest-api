@@ -10,12 +10,26 @@ const router = express.Router();
 // Base path for this router
 export const routePath = '/login';
 /**
- * @api {post} /login Authentification
- * @apiName Login
- * @apiGroup Auth
- * @apiBody {String} email Email de l'utilisateur
- * @apiBody {String} password Mot de passe
- * @apiSuccess {Object} session Informations de session
+ * @openapi
+ * /login:
+ *   post:
+ *     summary: Authentification
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Informations de session
  */
 
 router.post('/', handleResponse(async (req, res) => {
