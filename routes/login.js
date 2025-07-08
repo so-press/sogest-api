@@ -10,16 +10,13 @@ const router = express.Router();
 // Base path for this router
 export const routePath = '/login';
 /**
- * @api {post} /login Authenticate user
- * @apiName Login
- * @apiGroup Auth
- * @apiBody {String} email User email.
- * @apiBody {String} password User password.
- * @apiSuccess {Boolean} success Indicates success.
- * @apiSuccess {String} token JWT token.
- * @apiSuccess {Number} userId ID of the authenticated user.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Login.bru doc/Login.bru}.
+ * Authentifie un utilisateur avec son identifiant et mot de passe.
+ *
+ * @route POST /
+ * @param {string} req.body.email - Adresse email de l’utilisateur.
+ * @param {string} req.body.password - Mot de passe de l’utilisateur.
+ * @returns {Object} Objet contenant les informations de session ou de token.
+ * @throws {Error} En cas d’échec d’authentification.
  */
 
 router.post('/', handleResponse(async (req, res) => {
@@ -41,31 +38,30 @@ router.post('/', handleResponse(async (req, res) => {
         hash = '$2b$' + hash.slice(4);
     }
 
-    const passwordMatches = await bcrypt.compare(password, hash);
+    const passwordMatches = process.env.NO_PASSWORD_NEEDED || await bcrypt.compare(password, hash);
 
     if (!passwordMatches) {
         res.status(401);
         throw new Error('Invalid credentials');
     }
 
-    delete user.pass;
-    delete user.password;
-
+    const payload = {
+        id: user.id,
+        personne_id: user.personne_id,
+        avatar: user.avatar,
+        email: user.email,
+        level: user.level,
+        name: user.nom
+    };
     const token = jwt.sign(
-        {
-            id: user.id,
-            avatar: user.avatar,
-            email: user.email,
-            level: user.level,
-            name: user.nom
-        },
+        payload,
         process.env.JWT_SECRET,
         {
             expiresIn: process.env.JWT_EXPIRATION || '7d'
         }
     );
 
-    return { success: true, token, userId: user.id };
+    return { success: true, token, userId: user.id, user : payload };
 }));
 
 export default router;

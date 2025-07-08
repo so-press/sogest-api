@@ -6,48 +6,41 @@ const router = express.Router();
 export const routePath = '/personnes';
 
 /**
- * @api {get} /personnes List all personnes
- * @apiName GetPersonnes
- * @apiGroup Personnes
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam (Query) {Number{1..}} [page=1] Page number.
- * @apiParam (Query) {Number{1..}} [limit=50] Items per page.
- * @apiSuccess {Object[]} data Array of personnes.
- * @apiSuccess {Object}   pagination Pagination information.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Personnes.bru doc/Personnes.bru}.
+ * Récupère la liste complète des personnes.
+ *
+ * @route GET /personnes
+ * @returns {Object[]} Liste des personnes.
+ * @throws {Error} En cas d’échec lors de la récupération.
  */
 
 router.get('/', handleResponse(async (req, res) => {
   const personnes = await getPersonnes();
   return personnes;
 }));
-/**
- * @api {get} /personnes/:id Get personne by id
- * @apiName GetPersonne
- * @apiGroup Personnes
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam {Number} id Personne identifier.
- * @apiSuccess {Object} personne Personne object.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Personne.bru doc/Personne.bru}.
- */
 
+
+/**
+ * Récupère les informations d'une personne spécifique selon son ID.
+ *
+ * @route GET /personnes/:id
+ * @param {string} req.params.id - ID de la personne.
+ * @returns {Object} Données de la personne demandée.
+ * @throws {Error} Si la personne est introuvable ou en cas d’erreur serveur.
+ */
 router.get('/:id', handleResponse(async (req, res) => {
   const personne = await getPersonne({ id: req.params.id });
   return personne;
 }));
 
+
 /**
- * @api {put} /personnes/:id Update personne
- * @apiName UpdatePersonne
- * @apiGroup Personnes
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam {Number} id Personne identifier.
- * @apiBody {Object} data Allowed fields such as nom, prenom, email, etc.
- * @apiSuccess {Object} personne Updated personne object.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Personne Update.bru doc/Personne Update.bru}.
+ * Met à jour les données d'une personne spécifique.
+ *
+ * @route PUT /personnes/:id
+ * @param {string} req.params.id - ID de la personne à mettre à jour.
+ * @param {Object} req.body - Données mises à jour.
+ * @returns {Object} Données de la personne après modification.
+ * @throws {Error} En cas d’échec de la mise à jour ou d’erreur serveur.
  */
 router.put('/:id', handleResponse(async (req, res) => {
   const id = req.params.id;

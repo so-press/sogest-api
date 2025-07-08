@@ -7,13 +7,11 @@ export const routePath = '/personne';
 export const requireAuth = true;
 
 /**
- * @api {get} /personne Retrieve authenticated user's personne
- * @apiName GetAuthenticatedPersonne
- * @apiGroup Personnes
- * @apiHeader {String} Authorization Bearer JWT token.
- * @apiSuccess {Object} personne Personne linked to the token.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Personne\ auth.bru doc/Personne auth.bru}.
+ * Récupère les informations de la personne connectée.
+ *
+ * @route GET /
+ * @returns {Object} Informations personnelles de l'utilisateur.
+ * @throws {Error} En cas d’erreur lors de la récupération.
  */
 
 router.get('/', handleResponse(async (req, res) => {
@@ -21,4 +19,21 @@ router.get('/', handleResponse(async (req, res) => {
     return personne;
 }));
 
+/**
+ * Met à jour les informations de la personne connectée.
+ *
+ * @route PUT /
+ * @param {Object} req.body - Données à mettre à jour.
+ * @returns {Object} Données mises à jour.
+ * @throws {Error} En cas d’erreur lors de la mise à jour.
+ */
+
+router.put('/', handleResponse(async (req, res) => {
+    const { user } = req
+    const data = req.body;
+    const updated = await updatePersonne(user.personne_id, data);
+    if (updated) {
+        return await getPersonne({ id: user.personne_id })
+    }
+}));
 export default router;

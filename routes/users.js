@@ -6,39 +6,26 @@ const router = express.Router();
 // Base path for this router
 export const routePath = '/users';
 
-/**
- * @api {get} /users/ List users
- * @apiName GetUsers
- * @apiGroup Users
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam (Query) {Number{1..}} [page=1] Page number for pagination.
- * @apiParam (Query) {Number{1..}} [limit=50] Number of items per page.
- * @apiSuccess {Object[]} data Array of user objects.
- * @apiSuccess {Object}   pagination Pagination information.
- * @apiExample {bruno} Test with Bruno
- *   See {@link ../doc/Users.bru doc/Users.bru}.
- */
 
-// GET /users/
+/**
+ * Récupère la liste de tous les utilisateurs.
+ *
+ * @route GET /users
+ * @returns {Object[]} Liste des utilisateurs.
+ * @throws {Error} En cas d’échec lors de la récupération.
+ */
 router.get('/', handleResponse(async (req, res) => {
     const rows = await getUsers();
     return rows;
 }));
 
-// GET /users/
 /**
- * @api {get} /users/:id Get user by id
- * @apiName GetUser
- * @apiGroup Users
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam {Number} id User identifier.
- * @apiSuccess {Number} id User id.
- * @apiSuccess {Number} personne_id Linked personne id.
- * @apiSuccess {String} nom Nom de l'utilisateur.
- * @apiSuccess {String} prenom Prénom de l'utilisateur.
- * @apiSuccess {String} email Adresse email principale.
- * @apiSuccess {String} level Niveau d'accès.
- * @apiSuccess {Object} links Hyperlinks to related resources.
+ * Récupère les détails d’un utilisateur spécifique par son ID, avec liens associés.
+ *
+ * @route GET /users/:id
+ * @param {string} req.params.id - ID de l’utilisateur à récupérer.
+ * @returns {Object} Informations de l’utilisateur, incluant des liens vers ses absences et sa fiche personnelle.
+ * @throws {Error} Si l’utilisateur est introuvable ou en cas d’erreur serveur.
  */
 router.get('/:id', handleResponse(async (req, res) => {
     const rows = await getUsers({ id: req.params.id });
@@ -58,13 +45,13 @@ router.get('/:id', handleResponse(async (req, res) => {
     };
 }));
 
-// GET /users/level/:level
 /**
- * @api {get} /users/level/:level Get users by level
- * @apiName GetUsersByLevel
- * @apiGroup Users
- * @apiHeader {String} Authorization Bearer token or JWT.
- * @apiParam {String} level Access level to filter.
+ * Récupère les utilisateurs correspondant à un niveau d'accès donné.
+ *
+ * @route GET /users/level/:level
+ * @param {string} req.params.level - Niveau d’accès à filtrer.
+ * @returns {Object[]} Liste des utilisateurs ayant le niveau demandé.
+ * @throws {Error} En cas d’échec lors de la récupération.
  */
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });

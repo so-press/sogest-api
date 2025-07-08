@@ -1,4 +1,4 @@
-// index.js
+// dependencies
 import express from 'express';
 import mysql from 'mysql2/promise';
 import fs from 'fs';
@@ -9,6 +9,23 @@ import { createRequire } from 'module';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { getUser } from './inc/users.js';
+
+// routes
+import * as absences from './routes/absences.js';
+import * as documents from './routes/documents.js';
+import * as login from './routes/login.js';
+import * as personne from './routes/personne.js';
+import * as personnes from './routes/personnes.js';
+import * as users from './routes/users.js';
+
+const routes = {
+  absences,
+  documents,
+  login,
+  personne,
+  personnes,
+  users
+};
 
 // Load environment variables
 dotenv.config();
@@ -108,37 +125,36 @@ const jwtOnlyMiddleware = (req, res, next) => {
   next();
 };
 
+app.use('/doc', express.static(path.join(__dirname, 'doc')));
+
+
 // Apply auth middleware globally
 app.use(authMiddleware);
-
-// Dynamically load all routes in ./routes
-const routesDir = path.join(__dirname, 'routes');
-const routeFiles = fs.readdirSync(routesDir).filter(file => file.endsWith('.js'));
-
-// Import dynamically using top-level await workaround
-  const loadRoutes = async () => {
-    for (const file of routeFiles) {
-      const routeModule = await import(`./routes/${file}`);
-      const router = routeModule.default;
-      const routePath = routeModule.routePath;
-      const requireAuth = routeModule.requireAuth;
-      if (!routePath) {
-        console.warn(`No routePath specified in ${file}`);
-        continue;
-      }
-      console.log({file, routePath})
-      if (requireAuth) {
-        app.use(routePath, jwtOnlyMiddleware, router);
-      } else {
-        app.use(routePath, router);
-      }
+for (const file in routes) {
+  if (!Object.hasOwn(routes, file)) continue;
+  const route = routes[file];
+  try {
+    const router = route.default;
+    const routePath = route.routePath;
+    const requireAuth = route.requireAuth;
+    if (!routePath) {
+      console.warn(`⚠️ No routePath specified in ${file}`);
+      continue;
     }
-  };
+    console.log({ routePath, file });
+    if (requireAuth) {
+      app.use(routePath, jwtOnlyMiddleware, router);
+    } else {
+      app.use(routePath, router);
+    }
+  } catch (err) {
+    console.error(`❌ Failed to load route module: ${file}`);
+    console.error('📄 Error message:', err.message);
+    console.error('🧵 Stack trace:\n', err.stack);
+    throw err;
+  }
+};
 
-loadRoutes().then(() => {
-  app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
-}).catch(err => {
-  console.error('Error loading routes:', err);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
