@@ -8,11 +8,10 @@ export const routePath = '/users';
 
 
 /**
- * Récupère la liste de tous les utilisateurs.
- *
- * @route GET /users
- * @returns {Object[]} Liste des utilisateurs.
- * @throws {Error} En cas d’échec lors de la récupération.
+ * @api {get} /users Liste des utilisateurs
+ * @apiName GetUsers
+ * @apiGroup Users
+ * @apiSuccess {Object[]} users Liste des utilisateurs
  */
 router.get('/', handleResponse(async (req, res) => {
     const rows = await getUsers();
@@ -20,12 +19,11 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * Récupère les détails d’un utilisateur spécifique par son ID, avec liens associés.
- *
- * @route GET /users/:id
- * @param {string} req.params.id - ID de l’utilisateur à récupérer.
- * @returns {Object} Informations de l’utilisateur, incluant des liens vers ses absences et sa fiche personnelle.
- * @throws {Error} Si l’utilisateur est introuvable ou en cas d’erreur serveur.
+ * @api {get} /users/:id Détails d'un utilisateur
+ * @apiName GetUser
+ * @apiGroup Users
+ * @apiParam {Number} id ID de l'utilisateur
+ * @apiSuccess {Object} user Informations de l'utilisateur
  */
 router.get('/:id', handleResponse(async (req, res) => {
     const rows = await getUsers({ id: req.params.id });
@@ -46,12 +44,11 @@ router.get('/:id', handleResponse(async (req, res) => {
 }));
 
 /**
- * Récupère les utilisateurs correspondant à un niveau d'accès donné.
- *
- * @route GET /users/level/:level
- * @param {string} req.params.level - Niveau d’accès à filtrer.
- * @returns {Object[]} Liste des utilisateurs ayant le niveau demandé.
- * @throws {Error} En cas d’échec lors de la récupération.
+ * @api {get} /users/level/:level Utilisateurs par niveau
+ * @apiName GetUsersByLevel
+ * @apiGroup Users
+ * @apiParam {String} level Niveau d'accès
+ * @apiSuccess {Object[]} users Utilisateurs correspondants
  */
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });
@@ -59,3 +56,4 @@ router.get('/level/:level', handleResponse(async (req, res) => {
 }));
 
 export default router;
+

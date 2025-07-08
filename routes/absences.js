@@ -7,14 +7,13 @@ const router = express.Router();
 export const routePath = '/absences';
 
 /**
- * Récupère les absences d'un utilisateur donné, avec possibilité de filtrer par année et mois.
- *
- * @route GET /:userId/:year?/:month?
- * @param {string} req.params.userId - ID de l'utilisateur.
- * @param {string} [req.params.year] - Année facultative pour filtrer les absences.
- * @param {string} [req.params.month] - Mois facultatif pour filtrer les absences.
- * @returns {Object[]} Liste des absences.
- * @throws {Error} En cas d’erreur serveur.
+ * @api {get} /absences/:userId/:year?/:month? Liste des absences
+ * @apiName GetAbsences
+ * @apiGroup Absences
+ * @apiParam {Number} userId ID de l'utilisateur
+ * @apiParam {Number} [year] Année optionnelle
+ * @apiParam {Number} [month] Mois optionnel
+ * @apiSuccess {Object[]} absences Liste des absences
  */
 
 router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {
@@ -28,3 +27,4 @@ router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {
 }));
 
 export default router;
+

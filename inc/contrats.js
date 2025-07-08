@@ -1,6 +1,15 @@
+/**
+ * @namespace Contrats
+ */
 import { db } from '../db.js';
 import { sogestUrl } from './sogest.js';
 
+/**
+ * Récupère les contrats liés à une personne.
+ *
+ * @param {number} personneId - Identifiant de la personne
+ * @returns {Promise<Object>} Objet contenant les contrats et droits d'auteur
+ */
 export async function getContrats(personneId) {
     const query = db('contrats')
         .select('*')
@@ -24,6 +33,7 @@ export async function getContrats(personneId) {
 
     return all
 }
+
 
 
 

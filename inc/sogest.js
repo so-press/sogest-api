@@ -1,5 +1,9 @@
 
 /**
+ * @namespace Sogest
+ */
+
+/**
  * Construit une URL complète vers l'API SOGEST avec gestion du slash et des paramètres
  * @param {string} uri - URI à ajouter à l'URL de base
  * @param {Object} query - Paramètres de requête optionnels
@@ -18,3 +22,4 @@ export function sogestBaseUrl() {
   const base = process.env.SOGEST_URL.replace(/\/+$/, '')+'/';
   return base;
 }
+
