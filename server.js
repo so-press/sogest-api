@@ -10,6 +10,8 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { getUser } from './inc/users.js';
 
+const baseURL = process.env.BASE_URL || `http://localhost:${port}`;
+
 // routes
 import * as absences from './routes/absences.js';
 import * as documents from './routes/documents.js';
@@ -141,7 +143,6 @@ for (const file in routes) {
       console.warn(`⚠️ No routePath specified in ${file}`);
       continue;
     }
-    console.log({ routePath, file });
     if (requireAuth) {
       app.use(routePath, jwtOnlyMiddleware, router);
     } else {
@@ -157,4 +158,5 @@ for (const file in routes) {
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+  console.log(`Read the API documentation at: ${baseURL}/doc`);
 });
