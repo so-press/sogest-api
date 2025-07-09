@@ -10,7 +10,6 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { getUser } from './inc/users.js';
 
-const baseURL = process.env.BASE_URL || `http://localhost:${port}`;
 
 // routes
 import * as absences from './routes/absences.js';
@@ -44,6 +43,7 @@ const tokens = Object.values(config.tokens);
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || 3000;
+const baseURL = process.env.BASE_URL || `http://localhost:${port}`;
 
 
 const allowedRaw = (process.env.ALLOWED_DOMAINS || '')
