@@ -9,7 +9,8 @@ export const requireAuth = true;
 /**
  * @api {get} /personne Infos utilisateur connecté
  * @apiName GetCurrentPersonne
- * @apiGroup Personnes
+ * @apiGroup Personne
+ * @apiUse JwtHeader
  * @apiSuccess {Object} personne Informations de la personne
  */
 
@@ -21,7 +22,7 @@ router.get('/', handleResponse(async (req, res) => {
 /**
  * @api {put} /personne Mise à jour de la personne connectée
  * @apiName UpdateCurrentPersonne
- * @apiGroup Personnes
+ * @apiGroup Personne
  * @apiBody {Object} body Données de mise à jour
  * @apiSuccess {Object} personne Données mises à jour
  */

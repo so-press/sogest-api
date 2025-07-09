@@ -15,6 +15,7 @@ export const requireAuth = true;
  * @api {get} /documents Documents de l'utilisateur
  * @apiName GetDocuments
  * @apiGroup Documents
+ * @apiUse JwtHeader
  * @apiSuccess {Object[]} documents Liste des documents
  */
 

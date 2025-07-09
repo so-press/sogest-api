@@ -12,3 +12,13 @@ export const db = knex({
     database: process.env.DB_NAME
   }
 });
+
+// Test de connexion immédiat
+db.raw('SELECT 1')
+  .then(() => {
+    console.log('✅ Database connection established.');
+  })
+  .catch((err) => {
+    console.error('❌ Database connection failed!');
+    process.exit(1); // Arrêt du serveur si la base est inaccessible
+  });

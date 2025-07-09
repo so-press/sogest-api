@@ -15,6 +15,7 @@ export const routePath = '/login';
  * @apiGroup Auth
  * @apiBody {String} email Email de l'utilisateur
  * @apiBody {String} password Mot de passe
+ * @apiUse globalToken
  * @apiSuccess {Object} session Informations de session
  */
 

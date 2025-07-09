@@ -9,6 +9,7 @@ export const routePath = '/personnes';
  * @api {get} /personnes Liste des personnes
  * @apiName GetPersonnes
  * @apiGroup Personnes
+ * @apiUse globalToken
  * @apiSuccess {Object[]} personnes Liste des personnes
  */
 
@@ -23,6 +24,7 @@ router.get('/', handleResponse(async (req, res) => {
  * @apiName GetPersonne
  * @apiGroup Personnes
  * @apiParam {Number} id ID de la personne
+ * @apiUse globalToken
  * @apiSuccess {Object} personne Données de la personne
  */
 router.get('/:id', handleResponse(async (req, res) => {
@@ -37,6 +39,7 @@ router.get('/:id', handleResponse(async (req, res) => {
  * @apiGroup Personnes
  * @apiParam {Number} id ID de la personne à modifier
  * @apiBody {Object} body Données à mettre à jour
+ * @apiUse globalToken
  * @apiSuccess {Object} personne Données modifiées
  */
 router.put('/:id', handleResponse(async (req, res) => {

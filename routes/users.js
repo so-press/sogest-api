@@ -11,6 +11,7 @@ export const routePath = '/users';
  * @api {get} /users Liste des utilisateurs
  * @apiName GetUsers
  * @apiGroup Users
+ * @apiUse globalToken
  * @apiSuccess {Object[]} users Liste des utilisateurs
  */
 router.get('/', handleResponse(async (req, res) => {
@@ -23,6 +24,7 @@ router.get('/', handleResponse(async (req, res) => {
  * @apiName GetUser
  * @apiGroup Users
  * @apiParam {Number} id ID de l'utilisateur
+ * @apiUse globalToken
  * @apiSuccess {Object} user Informations de l'utilisateur
  */
 router.get('/:id', handleResponse(async (req, res) => {
@@ -48,8 +50,10 @@ router.get('/:id', handleResponse(async (req, res) => {
  * @apiName GetUsersByLevel
  * @apiGroup Users
  * @apiParam {String} level Niveau d'accès
+ * @apiUse globalToken
  * @apiSuccess {Object[]} users Utilisateurs correspondants
  */
+
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });
     return rows;

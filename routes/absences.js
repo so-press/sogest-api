@@ -13,6 +13,7 @@ export const routePath = '/absences';
  * @apiParam {Number} userId ID de l'utilisateur
  * @apiParam {Number} [year] Année optionnelle
  * @apiParam {Number} [month] Mois optionnel
+ * @apiUse globalToken
  * @apiSuccess {Object[]} absences Liste des absences
  */
 
