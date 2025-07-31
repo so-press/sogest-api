@@ -2,5 +2,10 @@
   "tokens": {
     "internal-service": "",
     "dev": ""
-  }
+  },
+  "allowedFileTypes": [
+    "image/jpeg",
+    "image/png",
+    "application/pdf"
+  ]
 }
