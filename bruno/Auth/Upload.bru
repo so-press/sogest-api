@@ -1,0 +1,25 @@
+meta {
+  name: Upload
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base}}/upload
+  body: multipartForm
+  auth: bearer
+}
+
+headers {
+  ~authorization: Bearer {{jwtToken}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:multipart-form {
+  folder: /test/dossier/
+  name: file.jpg
+  file: @file(./Assets/test.jpg)
+}

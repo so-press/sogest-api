@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import dotenv from 'dotenv';
-import AWS from 'aws-sdk';
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
 import { handleResponse } from '../inc/response.js';
@@ -11,7 +11,6 @@ const router = express.Router();
 export const routePath = '/upload';
 export const requireAuth = true;
 
-// Read allowed mime types from config
 let allowedTypes = [];
 try {
   const conf = JSON.parse(fs.readFileSync('./config/config.json'));
@@ -24,12 +23,14 @@ try {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const s3 = new AWS.S3({
+const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT,
   region: process.env.S3_REGION,
-  accessKeyId: process.env.S3_ACCESS_KEY,
-  secretAccessKey: process.env.S3_SECRET_KEY,
-  s3ForcePathStyle: true
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_KEY
+  },
+  forcePathStyle: true
 });
 
 /**
@@ -40,10 +41,12 @@ const s3 = new AWS.S3({
  * @apiBody {File} file File payload
  * @apiBody {String} [folder] Folder path in the bucket
  * @apiBody {String} [name] Desired file name
+ * @apiError 409 Conflict if file already exists
  * @apiSuccess {String} url Public URL of the uploaded file
  */
 
 router.post('/', upload.single('file'), handleResponse(async (req, res) => {
+
   if (!req.file) {
     res.status(400);
     throw new Error('No file provided');
@@ -54,21 +57,36 @@ router.post('/', upload.single('file'), handleResponse(async (req, res) => {
     throw new Error('Invalid file type');
   }
 
-  // Sanitize folder and filename to avoid path traversal
   const folder = (req.body.folder || '')
     .replace(/^\/+|\/+$/g, '')
     .replace(/\.\./g, '');
   const name = path.basename(req.body.name || req.file.originalname);
   const key = folder ? `${folder}/${name}` : name;
 
-  const params = {
+  // Check if file already exists on S3
+  try {
+    await s3.send(new HeadObjectCommand({
+      Bucket: process.env.S3_BUCKET,
+      Key: key
+    }));
+
+    res.status(409);
+    throw new Error('File already exists on S3');
+  } catch (err) {
+    if (err.name !== 'NotFound') {
+      throw err; // other errors, like permission denied
+    }
+  }
+
+  const command = new PutObjectCommand({
     Bucket: process.env.S3_BUCKET,
     Key: key,
     Body: req.file.buffer,
     ContentType: req.file.mimetype
-  };
+  });
 
-  await s3.upload(params).promise();
+  await s3.send(command);
+
   const baseUrl = process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`;
   return { url: `${baseUrl}/${key}` };
 }));
