@@ -18,6 +18,7 @@ import * as login from './routes/login.js';
 import * as personne from './routes/personne.js';
 import * as personnes from './routes/personnes.js';
 import * as users from './routes/users.js';
+import * as notifications from './routes/notifications.js';
 
 const routes = {
   absences,
@@ -25,7 +26,8 @@ const routes = {
   login,
   personne,
   personnes,
-  users
+  users,
+  notifications
 };
 
 // Load environment variables
