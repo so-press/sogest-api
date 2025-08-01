@@ -79,6 +79,7 @@ router.post('/', upload.single('file'), handleResponse(async (req, res) => {
   }
 
   const command = new PutObjectCommand({
+    ACL: 'public-read',
     Bucket: process.env.S3_BUCKET,
     Key: key,
     Body: req.file.buffer,
