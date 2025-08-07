@@ -2,6 +2,40 @@
  * @namespace Users
  */
 import { db } from '../db.js';
+import { getPersonne } from '../inc/personnes.js';
+
+
+/**
+ * Retourne l'URL de l'avatar à utiliser pour un utilisateur donné.
+ *
+ * La priorité est la suivante :
+ * 1. personne.photo si défini et non vide
+ * 2. user.avatar si défini et non vide
+ * 3. gravatar généré à partir de l'email
+ * 4. URL par défaut définie dans process.env.DEFAULT_AVATAR
+ *
+ * @param {Object} user - L'objet utilisateur (doit contenir `email`, `avatar`)
+ * @param {Object} personne - L'objet personne (doit contenir `photo`)
+ * @returns {String} URL de l'avatar
+ */
+export async function getUserAvatar(user) {
+
+    const personne = await getPersonne({personne_id : user.personne_id});
+
+    if (personne?.photo && personne.photo !== 'false') {
+        return personne.photo;
+    }
+    if (user?.avatar) {
+        return user.avatar;
+    }
+
+    if (user?.email) {
+        const hash = crypto.createHash('md5').update(user.email.trim().toLowerCase()).digest('hex');
+        return `https://www.gravatar.com/avatar/${hash}?d=404`;
+    }
+
+    return process.env.DEFAULT_AVATAR || '';
+}
 
 /**
  * @api {function} getUser Récupère un utilisateur par son identifiant
@@ -37,6 +71,7 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
         .select(
             'u.id',
             'u.personne_id',
+            'u.nom as nomComplet',
             'p.nom',
             'p.prenom',
             'u.email',
