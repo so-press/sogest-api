@@ -24,7 +24,7 @@ router.get('/:userId/:year?/:month?', handleResponse(async (req, res) => {
         year: year ? parseInt(year, 10) : null,
         month: month ? parseInt(month, 10) : null
     });
-    res.json(rows);
+    return rows;
 }));
 
 export default router;
