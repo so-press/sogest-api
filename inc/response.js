@@ -27,7 +27,6 @@ export function handleResponse(handler) {
         }
         return item;
       };
-
       // Handle array result with optional pagination
       if (Array.isArray(result)) {
         const page = parseInt(req.query.page, 10) || 1;
@@ -45,7 +44,6 @@ export function handleResponse(handler) {
           total: result.length,
           pages: totalPages
         };
-
         if (page < totalPages) {
           query.set('page', page + 1);
           pagination.next = `${baseUrl}?${query.toString()}`;
