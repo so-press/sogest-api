@@ -16,28 +16,7 @@ export const routePath = '/notifications';
  * @apiSuccess {Object[]} notifications Toutes les notifications
  */
 router.get('/', handleResponse(async () => {
-  return await getNotifications();
-}));
-
-/**
- * @api {get} /notifications/:personneId Notifications d’un utilisateur via son ID de personne
- * @apiName GetNotificationsByPersonne
- * @apiGroup Notifications
- * @apiParam {Number} personneId ID de la personne
- * @apiSuccess {Object[]} notifications Notifications liées à cette personne
- */
-router.get('/:personneId', handleResponse(async (req, res) => {
-  const personneId = req.params.personneId;
-
-  const personne = await getPersonne({ id: personneId });
-
-  if (!personne || !personne.user_id) {
-    res.status(404);
-    throw new Error('Personne introuvable ou sans user_id associé');
-  }
-
-  const notifications = await getNotificationsByUser(personne.user_id);
-  return notifications;
+  return await getNotificationsByUser(req.user.id);
 }));
 
 export default router;
