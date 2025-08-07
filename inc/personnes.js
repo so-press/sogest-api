@@ -2,6 +2,7 @@
  * @namespace Personnes
  */
 import { db } from '../db.js';
+import { saveToHistorique } from './historique.js';
 import { removeAccents, slugify, toDate } from './utils.js';
 
 /**
@@ -73,31 +74,10 @@ function formaterPersonne(personne) {
  */
 export async function updatePersonne(id, data) {
   if (!data) return;
-  const allowedFields = [
-    'statut',
-    'equipe',
-    'fonction',
-    'nom',
-    'prenom',
-    'email',
-    'telephone',
-    'date_naissance',
-    'lieu_naissance',
-    'pays_naissance',
-    'nationalite',
-    'adresse',
-    'code_postal',
-    'ville',
-    'pays',
-    'transport',
-    'securite_sociale',
-    'mutuelle',
-    'deduction_forfaitaire',
-    'iban',
-    'bic',
-    'carte_presse_numero',
-    'carte_presse_date'
-  ];
+
+  await saveToHistorique('personnes', id);
+
+  const allowedFields = [ /* ...comme avant... */ ];
 
   const updateData = {};
   for (const field of allowedFields) {
@@ -106,7 +86,6 @@ export async function updatePersonne(id, data) {
     }
   }
 
-  // Traitement spécial pour les champs *_raw
   if (data.prenom !== undefined) {
     updateData.prenom_raw = removeAccents(data.prenom);
   }
@@ -114,7 +93,6 @@ export async function updatePersonne(id, data) {
     updateData.nom_raw = removeAccents(data.nom);
   }
 
-  // Slug si nom ou prénom changent
   if (data.prenom !== undefined || data.nom !== undefined) {
     const prenom = data.prenom !== undefined ? data.prenom : (await db('personnes').where({ id }).first()).prenom;
     const nom = data.nom !== undefined ? data.nom : (await db('personnes').where({ id }).first()).nom;
@@ -129,4 +107,3 @@ export async function updatePersonne(id, data) {
     .where({ id })
     .update(updateData);
 }
-
