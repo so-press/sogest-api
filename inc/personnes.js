@@ -3,8 +3,20 @@
  */
 import { db } from '../db.js';
 import { saveToHistorique } from './historique.js';
+import { getOption } from './options.js';
 import { removeAccents, slugify, toDate } from './utils.js';
 
+
+export async function getPermanents() {
+  const contrats = await getOption('CONTRATS_PERMANENTS', { filter: 'csv' });
+  const query = db('personnes')
+    .select('*')
+    .where('trash', '<>', 1)
+    .where('contrat', 'in', contrats)
+    .orderBy([{ column: 'nom', order: 'desc' }, { column: 'prenom', order: 'desc' }]);
+
+  return (await query).map(formaterPersonne);
+}
 /**
  * @api {function} getPersonnes Retourne la liste des personnes actives
  * @apiName GetPersonnesFunc
@@ -77,7 +89,7 @@ export async function updatePersonne(id, data) {
 
   await saveToHistorique('personnes', id);
 
-  const allowedFields = [ /* ...comme avant... */ ];
+  const allowedFields = [ /* ...comme avant... */];
 
   const updateData = {};
   for (const field of allowedFields) {

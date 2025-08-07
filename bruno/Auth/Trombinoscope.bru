@@ -1,0 +1,19 @@
+meta {
+  name: Trombinoscope
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base}}/absences/54/2025
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
