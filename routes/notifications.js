@@ -15,8 +15,9 @@ export const routePath = '/notifications';
  * @apiGroup Notifications
  * @apiSuccess {Object[]} notifications Toutes les notifications
  */
-router.get('/', handleResponse(async () => {
+router.get('/', handleResponse(async (req) => {
   return await getNotificationsByUser(req.user.id);
 }));
+
 
 export default router;
