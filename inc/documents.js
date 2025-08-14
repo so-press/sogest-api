@@ -30,7 +30,7 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
             if (!Object.hasOwn(struct, type)) continue;
             const lines = struct[type];
             for (const line of lines) {
-                const data = { type };
+                const data = { document_id: line.id, document_origin : line.type_item, type };
                 if (line.type_item === 'pige') {
                     data.date = choseDate(line.creation, line.modification);
                     data.url = line.url;
