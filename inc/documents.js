@@ -35,20 +35,17 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
                     data.date = choseDate(line.creation, line.modification);
                     data.url = line.url;
                     data.infos = line.description;
-                    data.nom_document = line.nom_document;
                 }
-                if (line.type_item === 'contrats') {
+                if (line.type_item === 'contrat') {
                     data.date = choseDate(line.date_debut);
                     data.url = line.url;
                     data.infos = line.libelle_projet;
-                    data.nom_document = line.nom_document;
                 }
                 if (line.type_item === 'document') {
                     data.date = choseDate(line.date_creation);
                     data.type = line.type_document;
                     data.url = line.url;
                     data.infos = line.nom;
-                    data.nom_document = line.nom_document;
                 }
                 final.push(data);
             }
@@ -89,7 +86,6 @@ export async function getUploadedDocuments(personneId) {
         document.meta = document.meta ? JSON.parse(document.meta) : '';
         document.url = sogestUrl(`document.php`, { document_id: document.id });
         document.nom = document.nom ?? '';
-        document.nom_document = document.nom_document ?? '';
         const typeDocument = kebabToCamel(document.type_document);
         all[typeDocument] = all[typeDocument] || [];
         all[typeDocument].push(document);
