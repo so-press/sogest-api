@@ -8,6 +8,27 @@ import { sogestBaseUrl, sogestUrl } from './sogest.js';
 import { kebabToCamel, md5, choseDate } from './utils.js';
 
 /**
+ * @api {function} getDocument Récupère un document précis lié à une personne
+ * @apiName GetDocument
+ * @apiGroup Documents
+ *
+ * @apiParam {Number} personneId Identifiant de la personne
+ * @apiParam {String} origin Origine du document (ex: "pige", "contrat", "document")
+ * @apiParam {Number} id Identifiant du document
+ *
+ * @apiSuccess {Object} document Document correspondant aux critères
+ */
+
+export async function getDocument(params = {}) {
+    const { personneId, origin, id } = params;
+    const documents = await getDocumentsForPersonne(personneId);
+    for(const document of documents) {
+        if(document.document_origin != origin) continue;
+        if(document.document_id != id) continue;
+        return document;
+    }
+}
+/**
  * @api {function} getDocumentsForPersonne Récupère l'ensemble des documents liés à une personne
  * @apiName GetDocumentsForPersonne
  * @apiGroup Documents
@@ -30,7 +51,7 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
             if (!Object.hasOwn(struct, type)) continue;
             const lines = struct[type];
             for (const line of lines) {
-                const data = { document_id: line.id, document_origin : line.type_item, type };
+                const data = { document_id: line.id, document_origin: line.type_item, type };
                 if (line.type_item === 'pige') {
                     data.date = choseDate(line.creation, line.modification);
                     data.url = line.url;
