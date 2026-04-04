@@ -19,6 +19,8 @@ import * as notifications from './routes/notifications.js';
 import * as upload from './routes/upload.js';
 import * as historique from './routes/historique.js';
 import * as trombinoscope from './routes/trombinoscope.js';
+import * as ssoclients from './routes/ssoclients.js';
+import * as supports from './routes/supports.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -34,7 +36,9 @@ const routes = {
   notifications,
   upload,
   historique,
-  trombinoscope
+  trombinoscope,
+  ssoclients,
+  supports
 };
 
 // Load environment variables

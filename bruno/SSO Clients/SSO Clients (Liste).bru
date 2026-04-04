@@ -1,0 +1,19 @@
+meta {
+  name: SSO Clients (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/ssoclients
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Support (Unique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/supports/{{supportId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  supportId: 36
+}

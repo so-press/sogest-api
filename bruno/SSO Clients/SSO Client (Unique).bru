@@ -1,0 +1,23 @@
+meta {
+  name: SSO Client (Unique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/ssoclients/{{ssoclientId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  ssoclientId: 2
+}

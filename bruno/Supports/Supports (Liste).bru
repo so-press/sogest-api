@@ -1,0 +1,19 @@
+meta {
+  name: Supports (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/supports
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
