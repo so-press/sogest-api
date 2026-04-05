@@ -7,14 +7,14 @@ const PUBLIC_FIELDS = [
   'ssoclients.redirect_uris', 'ssoclients.urls', 'ssoclients.actif', 'ssoclients.payload_handler',
   'ssoclients.email', 'ssoclients.color', 'ssoclients.background',
   'ssoclients.main_color', 'ssoclients.main_color_alt',
-  'ssoclients.support_id', 'ssoclients.client_secret',
+  'ssoclients.support_id', 'ssoclients.client_secret', 'ssoclients.auth_sources',
   // support_id est utilisé pour charger le support, puis retiré de la réponse
 ];
 
 async function formatSsoclient(row) {
   if (!row) return row;
 
-  for (const field of ['redirect_uris', 'urls']) {
+  for (const field of ['redirect_uris', 'urls', 'auth_sources']) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
