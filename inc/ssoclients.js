@@ -4,6 +4,7 @@ import { getSupport } from './supports.js';
 
 const PUBLIC_FIELDS = [
   'ssoclients.id', 'ssoclients.client_id', 'ssoclients.title', 'ssoclients.slug', 'ssoclients.base_url',
+  'ssoclients.account_recovery_url',
   'ssoclients.redirect_uris', 'ssoclients.urls', 'ssoclients.actif', 'ssoclients.payload_handler',
   'ssoclients.email', 'ssoclients.color', 'ssoclients.background',
   'ssoclients.main_color', 'ssoclients.main_color_alt',
