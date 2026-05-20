@@ -2,10 +2,24 @@ import { db } from '../db.js';
 import { md5, slugify } from './utils.js';
 import { resolveLogoUrls } from './supports.js';
 
-const SOPRESS_SUPPORT_ID = 36;
+const SOPRESS_SUPPORT_NAME = 'SO PRESS';
+let sopressIdPromise = null;
 
-function effectiveSupportId(row) {
-  return row.support_id > 0 ? row.support_id : SOPRESS_SUPPORT_ID;
+function getSopressSupportId() {
+  if (!sopressIdPromise) {
+    sopressIdPromise = db('supports')
+      .select('id')
+      .where('nom', SOPRESS_SUPPORT_NAME)
+      .first()
+      .then((row) => row?.id ?? null)
+      .catch(() => null);
+  }
+  return sopressIdPromise;
+}
+
+async function effectiveSupportId(row) {
+  if (row.support_id > 0) return row.support_id;
+  return await getSopressSupportId();
 }
 
 function buildSlug(row) {
@@ -63,7 +77,7 @@ async function supportLogosFor(supportIds) {
 }
 
 async function decorate(row) {
-  const logos = await resolveLogoUrls(effectiveSupportId(row));
+  const logos = await resolveLogoUrls(await effectiveSupportId(row));
   return {
     ...row,
     slug: buildSlug(row),
@@ -80,12 +94,13 @@ async function decorateList(rows) {
     counts.set(base, (counts.get(base) || 0) + 1);
   }
 
-  const logoMap = await supportLogosFor(rows.map(effectiveSupportId));
+  const effectiveIds = await Promise.all(rows.map(effectiveSupportId));
+  const logoMap = await supportLogosFor(effectiveIds);
 
-  return rows.map((row) => {
+  return rows.map((row, i) => {
     const base = buildSlug(row);
     const slug = counts.get(base) > 1 ? `${base}-${row.id}` : base;
-    const logos = logoMap.get(effectiveSupportId(row)) ?? { logo: null, logo_svg: null };
+    const logos = logoMap.get(effectiveIds[i]) ?? { logo: null, logo_svg: null };
     return {
       ...row,
       slug,
