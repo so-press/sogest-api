@@ -17,9 +17,20 @@ function getSopressSupportId() {
   return sopressIdPromise;
 }
 
-async function effectiveSupportId(row) {
-  if (row.support_id > 0) return row.support_id;
-  return await getSopressSupportId();
+function hasLogo(logos) {
+  return !!(logos && (logos.logo || logos.logo_svg));
+}
+
+async function resolveLogoUrlsWithFallback(supportId) {
+  if (supportId > 0) {
+    const logos = await resolveLogoUrls(supportId);
+    if (hasLogo(logos)) return logos;
+  }
+  const fallbackId = await getSopressSupportId();
+  if (fallbackId && fallbackId !== supportId) {
+    return resolveLogoUrls(fallbackId);
+  }
+  return { logo: null, logo_svg: null };
 }
 
 function buildSlug(row) {
@@ -68,8 +79,8 @@ function buildCouleur(row) {
   return hslToHex(hue, sat, light);
 }
 
-async function supportLogosFor(supportIds) {
-  const unique = [...new Set(supportIds)];
+async function supportLogosMap(supportIds) {
+  const unique = [...new Set(supportIds.filter((id) => id > 0))];
   const entries = await Promise.all(
     unique.map(async (id) => [id, await resolveLogoUrls(id)])
   );
@@ -77,7 +88,7 @@ async function supportLogosFor(supportIds) {
 }
 
 async function decorate(row) {
-  const logos = await resolveLogoUrls(await effectiveSupportId(row));
+  const logos = await resolveLogoUrlsWithFallback(row.support_id);
   return {
     ...row,
     slug: buildSlug(row),
@@ -94,13 +105,17 @@ async function decorateList(rows) {
     counts.set(base, (counts.get(base) || 0) + 1);
   }
 
-  const effectiveIds = await Promise.all(rows.map(effectiveSupportId));
-  const logoMap = await supportLogosFor(effectiveIds);
+  const logoMap = await supportLogosMap(rows.map((r) => r.support_id));
+  const fallbackId = await getSopressSupportId();
+  const fallbackLogos = fallbackId
+    ? logoMap.get(fallbackId) ?? await resolveLogoUrls(fallbackId)
+    : { logo: null, logo_svg: null };
 
-  return rows.map((row, i) => {
+  return rows.map((row) => {
     const base = buildSlug(row);
     const slug = counts.get(base) > 1 ? `${base}-${row.id}` : base;
-    const logos = logoMap.get(effectiveIds[i]) ?? { logo: null, logo_svg: null };
+    const own = row.support_id > 0 ? logoMap.get(row.support_id) : null;
+    const logos = hasLogo(own) ? own : fallbackLogos;
     return {
       ...row,
       slug,
