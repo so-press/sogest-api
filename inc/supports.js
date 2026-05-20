@@ -11,7 +11,7 @@ async function urlExists(url) {
   }
 }
 
-async function resolveLogoUrls(id) {
+export async function resolveLogoUrls(id) {
   const base = `uploads/files/supports/${id}/`;
   const pngUrl = sogestUrl(base + 'logo.png');
   const jpgUrl = sogestUrl(base + 'logo.jpg');
