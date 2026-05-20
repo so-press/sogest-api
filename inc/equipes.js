@@ -25,9 +25,10 @@ function hslToHex(h, s, l) {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-// 12 ancres de teinte réparties uniformément autour de la roue
-// (rouge, orange, ambre, jaune, citron, vert, émeraude, cyan, bleu, indigo, violet, magenta)
-const HUE_ANCHORS = [0, 30, 50, 60, 90, 130, 160, 190, 220, 260, 290, 330];
+// Ancres de teinte réparties sur les couleurs "sûres" : on exclut les rouges,
+// roses et magentas/violets qui dominent visuellement en pastel
+// (orange, ambre, jaune, citron, vert clair, vert, émeraude, teal, cyan, bleu ciel, bleu, indigo)
+const HUE_ANCHORS = [25, 40, 55, 75, 100, 130, 160, 180, 200, 215, 235, 255];
 
 // Léger ajustement de luminosité par teinte pour égaliser le rendu pastel
 // (jaune/cyan paraissent plus clairs, bleu/violet plus sombres)
