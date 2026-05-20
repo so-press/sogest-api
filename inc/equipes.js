@@ -87,12 +87,26 @@ async function supportLogosMap(supportIds) {
   return new Map(entries);
 }
 
+function persistCouleur(id, couleur) {
+  db('equipes')
+    .where('id', id)
+    .update({ couleur })
+    .catch((err) => console.error(`Failed to persist couleur for equipe ${id}:`, err.message));
+}
+
+function resolveCouleur(row) {
+  if (row.couleur) return row.couleur;
+  const couleur = buildCouleur(row);
+  persistCouleur(row.id, couleur);
+  return couleur;
+}
+
 async function decorate(row) {
   const logos = await resolveLogoUrlsWithFallback(row.support_id);
   return {
     ...row,
     slug: buildSlug(row),
-    couleur: buildCouleur(row),
+    couleur: resolveCouleur(row),
     support_logo: logos.logo,
     support_logo_svg: logos.logo_svg,
   };
@@ -119,7 +133,7 @@ async function decorateList(rows) {
     return {
       ...row,
       slug,
-      couleur: buildCouleur(row),
+      couleur: resolveCouleur(row),
       support_logo: logos.logo,
       support_logo_svg: logos.logo_svg,
     };
