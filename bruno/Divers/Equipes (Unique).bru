@@ -1,0 +1,23 @@
+meta {
+  name: Equipes (Unique)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base}}/equipes/{{equipeId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  equipeId: 4019
+}

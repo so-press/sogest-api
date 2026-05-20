@@ -1,0 +1,19 @@
+meta {
+  name: Equipes (Liste)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base}}/equipes
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
