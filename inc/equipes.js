@@ -25,11 +25,31 @@ function hslToHex(h, s, l) {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+// 12 ancres de teinte réparties uniformément autour de la roue
+// (rouge, orange, ambre, jaune, citron, vert, émeraude, cyan, bleu, indigo, violet, magenta)
+const HUE_ANCHORS = [0, 30, 50, 60, 90, 130, 160, 190, 220, 260, 290, 330];
+
+// Léger ajustement de luminosité par teinte pour égaliser le rendu pastel
+// (jaune/cyan paraissent plus clairs, bleu/violet plus sombres)
+function lightnessFor(hue) {
+  if (hue >= 40 && hue <= 75) return 76;   // jaunes
+  if (hue >= 75 && hue <= 180) return 80;  // verts/cyans
+  if (hue >= 200 && hue <= 280) return 85; // bleus
+  return 82;                                // rouges, oranges, violets, magentas
+}
+
 function buildCouleur(row) {
   const seed = md5(`${row.id}|${row.libelle}|${row.support_id}|${row.support}`);
-  const hue = parseInt(seed.slice(0, 8), 16) % 360;
-  const sat = 60 + (parseInt(seed.slice(8, 10), 16) % 16);   // 60-75 %
-  const light = 80 + (parseInt(seed.slice(10, 12), 16) % 8); // 80-87 %
+
+  // Sélection d'une ancre parmi 12 → distribution uniforme garantie
+  const anchor = HUE_ANCHORS[parseInt(seed.slice(0, 8), 16) % HUE_ANCHORS.length];
+  // Petit jitter ±10° pour éviter des couleurs identiques d'un bucket à l'autre
+  const jitter = (parseInt(seed.slice(8, 10), 16) % 21) - 10;
+  const hue = (anchor + jitter + 360) % 360;
+
+  const sat = 65 + (parseInt(seed.slice(10, 12), 16) % 16);    // 65-80 %
+  const light = lightnessFor(hue) + (parseInt(seed.slice(12, 14), 16) % 5) - 2; // ±2
+
   return hslToHex(hue, sat, light);
 }
 
