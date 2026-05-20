@@ -1,0 +1,23 @@
+meta {
+  name: Equipes (Par slug)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{base}}/equipes/slug/{{equipeSlug}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  equipeSlug: h3-media
+}

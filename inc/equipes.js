@@ -114,6 +114,17 @@ export async function getEquipe(idOrSlug) {
     return await decorate(row);
   }
 
+  return getEquipeBySlug(idOrSlug);
+}
+
+/**
+ * @api {function} getEquipeBySlug Retourne une équipe par son slug
+ * @apiName GetEquipeBySlugFunc
+ * @apiGroup Equipes
+ * @apiParam {String} slug Slug de l'équipe
+ * @apiSuccess {Object} equipe Données de l'équipe
+ */
+export async function getEquipeBySlug(slug) {
   const list = await getEquipes({ all: true });
-  return list.find((r) => r.slug === idOrSlug) ?? null;
+  return list.find((r) => r.slug === slug) ?? null;
 }

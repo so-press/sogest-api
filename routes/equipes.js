@@ -1,5 +1,5 @@
 import express from 'express';
-import { getEquipe, getEquipes } from '../inc/equipes.js';
+import { getEquipe, getEquipeBySlug, getEquipes } from '../inc/equipes.js';
 import { handleResponse } from '../inc/response.js';
 
 const router = express.Router();
@@ -19,10 +19,28 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /equipes/:id Détails d'une équipe
+ * @api {get} /equipes/slug/:slug Détails d'une équipe par son slug
+ * @apiName GetEquipeBySlug
+ * @apiGroup Equipes
+ * @apiParam {String} slug Slug de l'équipe
+ * @apiUse globalToken
+ * @apiSuccess {Object} equipe Données de l'équipe
+ * @apiError 404 Équipe introuvable
+ */
+router.get('/slug/:slug', handleResponse(async (req, res) => {
+  const equipe = await getEquipeBySlug(req.params.slug);
+  if (!equipe) {
+    res.status(404);
+    throw new Error('Equipe not found');
+  }
+  return equipe;
+}));
+
+/**
+ * @api {get} /equipes/:id Détails d'une équipe par son id ou son slug
  * @apiName GetEquipe
  * @apiGroup Equipes
- * @apiParam {Number} id Identifiant de l'équipe
+ * @apiParam {Number|String} id Identifiant ou slug de l'équipe
  * @apiUse globalToken
  * @apiSuccess {Object} equipe Données de l'équipe
  * @apiError 404 Équipe introuvable
