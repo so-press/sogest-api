@@ -3,6 +3,7 @@
  */
 import { db } from '../db.js';
 import { getPersonne } from '../inc/personnes.js';
+import { slugify } from './utils.js';
 
 
 /**
@@ -154,6 +155,11 @@ function formatUser(user) {
         }
     }
     delete user.links;
+
+    // slug_visio : si vide, fallback sur un slug du nom complet
+    if (!user.slug_visio) {
+        user.slug_visio = slugify(user.nomComplet || '');
+    }
 
     return user
 }
