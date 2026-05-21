@@ -1,11 +1,11 @@
 meta {
-  name: Personnes (Unique)
+  name: Users (Unique)
   type: http
-  seq: 4
+  seq: 3
 }
 
 get {
-  url: {{base}}/personnes/{{personneId}}
+  url: {{base}}/users/{{userId}}
   body: none
   auth: bearer
 }
@@ -16,4 +16,8 @@ headers {
 
 auth:bearer {
   token: {{token}}
+}
+
+vars:pre-request {
+  userId: 1
 }

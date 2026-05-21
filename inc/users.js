@@ -66,8 +66,19 @@ export async function getUser(id) {
  * @apiSuccess {Object[]} users Utilisateurs formatés
  */
 export async function getUsers({ level = null, id = null, clause = null } = {}) {
+    // Sous-requête agrégeant les valeurs liées (table `links`) par utilisateur.
+    // GROUP_CONCAT car JSON_OBJECTAGG n'est pas disponible (MariaDB).
+    // Séparateurs : 0x1f (champ/valeur) et 0x1e (entre paires), improbables dans les données.
+    const linksSub = db('links')
+        .select('cle')
+        .select(db.raw("GROUP_CONCAT(CONCAT(champ, 0x1f, valeur) SEPARATOR 0x1e) as links"))
+        .where('table', 'users')
+        .groupBy('cle')
+        .as('l');
+
     const query = db('users as u')
         .leftJoin('personnes as p', 'u.personne_id', 'p.id')
+        .leftJoin(linksSub, 'u.id', 'l.cle')
         .select(
             'u.id',
             'u.personne_id',
@@ -76,7 +87,8 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
             'p.prenom',
             'u.email',
             'u.level',
-            'u.emails_alternatifs' // include this so formatUser can use it
+            'u.emails_alternatifs', // include this so formatUser can use it
+            'l.links' // valeurs liées agrégées (JSON)
         )
         .where('u.trash', '<>', 1)
         .andWhere('u.actif', 1)
@@ -133,5 +145,15 @@ function formatUser(user) {
     if (!user) return;
     if (user.emails_alternatifs)
         user.emails_alternatifs = user.emails_alternatifs.split("\n").map(email => email.trim())
+
+    // Fusionne les valeurs liées (table `links`) directement comme propriétés de l'utilisateur
+    if (user.links) {
+        for (const pair of user.links.split('\x1e')) {
+            const [champ, valeur] = pair.split('\x1f');
+            user[champ] = valeur;
+        }
+    }
+    delete user.links;
+
     return user
 }
