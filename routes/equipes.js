@@ -1,5 +1,5 @@
 import express from 'express';
-import { getEquipe, getEquipeBySlug, getEquipes } from '../inc/equipes.js';
+import { getEquipe, getEquipeBySlug, getEquipes, getEquipesByUserId } from '../inc/equipes.js';
 import { handleResponse } from '../inc/response.js';
 
 const router = express.Router();
@@ -16,6 +16,23 @@ export const routePath = '/equipes';
 router.get('/', handleResponse(async (req, res) => {
   const all = ['1', 'true', 'yes'].includes(String(req.query.all).toLowerCase());
   return await getEquipes({ all });
+}));
+
+/**
+ * @api {get} /equipes/user Équipes de l'utilisateur connecté
+ * @apiName GetMyEquipes
+ * @apiGroup Equipes
+ * @apiDescription L'utilisateur est déterminé par le token JWT. Nécessite un JWT (pas un token statique).
+ * @apiUse JwtHeader
+ * @apiSuccess {Object[]} data Liste des équipes de l'utilisateur (avec son `role`)
+ * @apiError 401 Authentification JWT requise
+ */
+router.get('/user', handleResponse(async (req, res) => {
+  if (!req.user) {
+    res.status(401);
+    throw new Error('JWT authentication required');
+  }
+  return await getEquipesByUserId(req.user.id);
 }));
 
 /**

@@ -1,0 +1,19 @@
+meta {
+  name: Equipes (Utilisateur)
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{base}}/equipes/user
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

@@ -1,6 +1,7 @@
 import { db } from '../db.js';
 import { md5, slugify } from './utils.js';
 import { resolveLogoUrls } from './supports.js';
+import { sogestUrl } from './sogest.js';
 
 const SOPRESS_SUPPORT_NAME = 'SO PRESS';
 let sopressIdPromise = null;
@@ -109,6 +110,7 @@ async function decorate(row) {
     couleur: resolveCouleur(row),
     support_logo: logos.logo,
     support_logo_svg: logos.logo_svg,
+    calendrier_absences: sogestUrl('absences.php', { equipe: row.id }),
   };
 }
 
@@ -136,6 +138,7 @@ async function decorateList(rows) {
       couleur: resolveCouleur(row),
       support_logo: logos.logo,
       support_logo_svg: logos.logo_svg,
+      calendrier_absences: sogestUrl('absences.php', { equipe: row.id }),
     };
   });
 }
@@ -159,6 +162,26 @@ export async function getEquipes({ all = false } = {}) {
   }
 
   return decorateList(await query);
+}
+
+/**
+ * @api {function} getEquipesByUserId Retourne les équipes auxquelles un utilisateur est rattaché
+ * @apiName GetEquipesByUserIdFunc
+ * @apiGroup Equipes
+ * @apiParam {Number} userId Identifiant de l'utilisateur
+ * @apiSuccess {Object[]} equipes Liste des équipes de l'utilisateur (avec son `role`)
+ */
+export async function getEquipesByUserId(userId) {
+  if (isNaN(userId)) throw new Error('Invalid user ID');
+  const rows = await db('equipes')
+    .select('equipes.*', 'lien_equipe_user.role')
+    .join('lien_equipe_user', 'lien_equipe_user.equipe_id', 'equipes.id')
+    .where('lien_equipe_user.user_id', userId)
+    .andWhere('equipes.trash', '<>', 1)
+    .andWhere('equipes.visible', 1)
+    .orderBy('equipes.libelle', 'asc');
+
+  return decorateList(rows);
 }
 
 /**
