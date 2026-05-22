@@ -1,0 +1,26 @@
+meta {
+  name: Absence (Modifier)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base}}/absences/750
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "type": "rtt",
+    "valeur": 0.5
+  }
+}

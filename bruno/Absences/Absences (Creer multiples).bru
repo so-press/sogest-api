@@ -1,0 +1,32 @@
+meta {
+  name: Absences (Creer multiples)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base}}/absences
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "type": "conge",
+    "valeur": 1,
+    "dates": [
+      "2021-09-20",
+      "2021-09-21",
+      { "date": "2021-09-22", "valeur": 0.5 },
+      { "date": "2021-09-23", "valeur": 0.5, "type": "rtt" }
+    ]
+  }
+}

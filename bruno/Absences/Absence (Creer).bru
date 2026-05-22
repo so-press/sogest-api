@@ -1,0 +1,27 @@
+meta {
+  name: Absence (Creer)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base}}/absences
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "date": "2021-09-15",
+    "type": "conge",
+    "valeur": 1
+  }
+}
