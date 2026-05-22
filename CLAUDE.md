@@ -53,6 +53,7 @@ Routes with `export const requireAuth = true` additionally run `jwtOnlyMiddlewar
 All route handlers are wrapped with `handleResponse()` from `inc/response.js`:
 - Return a plain object → sent as JSON
 - Return an array → automatically paginated using `?page=` and `?limit=` query params (default limit 50)
+  - Add `?count=1` (or `count=true`) to get **only** the `pagination` object (with `total`), without the `data` array. Native on every list route, no per-route code. Note: `total` is the row count of the returned array (not a SQL `COUNT(*)`, and not value-weighted).
 - `meta` fields that are JSON strings are automatically parsed
 - Throw an error after setting `res.status(...)` to return that status with `{ error, message }`
 

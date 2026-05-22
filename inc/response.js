@@ -31,8 +31,6 @@ export function handleResponse(handler) {
       if (Array.isArray(result)) {
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 50;
-        const start = (page - 1) * limit;
-        const paginatedItems = result.slice(start, start + limit).map(decodeMeta);
 
         const totalPages = Math.ceil(result.length / limit);
         const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
@@ -54,10 +52,19 @@ export function handleResponse(handler) {
           pagination.prev = `${baseUrl}?${query.toString()}`;
         }
 
-        res.json({
-          data: paginatedItems,
-          pagination
-        });
+        // Mode "compte seul" : ?count (count=1/true) renvoie uniquement la
+        // pagination (dont `total`), sans le tableau `data`. Natif sur toutes
+        // les routes liste, sans modifier leur code.
+        const c = req.query.count;
+        const countOnly = c !== undefined && c !== 'false' && c !== '0';
+
+        if (countOnly) {
+          res.json({ pagination });
+        } else {
+          const start = (page - 1) * limit;
+          const paginatedItems = result.slice(start, start + limit).map(decodeMeta);
+          res.json({ data: paginatedItems, pagination });
+        }
 
       } else if (result && typeof result === 'object') {
         res.json(decodeMeta(result));
