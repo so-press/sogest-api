@@ -18,7 +18,7 @@ Copy `.env` from a template (not committed). Required variables:
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — MySQL connection
 - `JWT_SECRET`, `JWT_EXPIRATION` (default `7d`)
 - `PORT` (default 3000), `BASE_URL`
-- `ALLOWED_DOMAINS` — comma-separated list of allowed CORS origins (e.g. `localhost:5173,app.example.com`)
+- `ALLOWED_DOMAINS` — comma-separated list of allowed CORS origins. Each entry is a host (no scheme): `host` matches any port, `host:port` matches that exact port, and `*.domain` matches any subdomain of `domain` (and the apex). E.g. `localhost:5173,app.example.com,*.sopress.com`
 - `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`
 - `NO_PASSWORD_NEEDED` — set to any truthy value to bypass bcrypt check (dev only)
 

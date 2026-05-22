@@ -64,17 +64,24 @@ const allowedRaw = (process.env.ALLOWED_DOMAINS || '')
   .map(d => d.trim().toLowerCase())
   .filter(Boolean);
 
-// Build two sets: one for exact host:port, one for wildcard hosts
+// Build three sets : exact host:port, host-only (n'importe quel port),
+// et wildcards de sous-domaine `*.domaine` (n'importe quel sous-domaine + apex)
 const allowedExact = new Set();
 const allowedHostOnly = new Set();
+const allowedWildcard = []; // domaines de base, ex. 'sopress.com' pour '*.sopress.com'
 
 for (const entry of allowedRaw) {
-  if (entry.includes(':')) {
+  if (entry.startsWith('*.')) {
+    allowedWildcard.push(entry.slice(2));
+  } else if (entry.includes(':')) {
     allowedExact.add(entry);
   } else {
     allowedHostOnly.add(entry);
   }
 }
+
+const matchesWildcard = (hostname) =>
+  allowedWildcard.some((base) => hostname === base || hostname.endsWith(`.${base}`));
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -84,7 +91,7 @@ app.use(cors({
       const { hostname, port } = new URL(origin);
       const key = port ? `${hostname}:${port}` : `${hostname}:443`;
 
-      if (allowedExact.has(key) || allowedHostOnly.has(hostname)) {
+      if (allowedExact.has(key) || allowedHostOnly.has(hostname) || matchesWildcard(hostname)) {
         return callback(null, true);
       }
     } catch (e) {
