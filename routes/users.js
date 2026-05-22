@@ -39,7 +39,7 @@ router.get('/:id', handleResponse(async (req, res) => {
     return {
         ...user,
         links: {
-            absences: `${baseUrl}/absences/${user.id}`,
+            absences: `${baseUrl}/absences`,
             personne: `${baseUrl}/personnes/${user.personne_id}`
         }
     };
