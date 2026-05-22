@@ -6,6 +6,7 @@ import {
   createAbsence,
   updateAbsence,
   deleteAbsence,
+  recapAbsences,
 } from '../inc/absences.js';
 import { handleResponse } from '../inc/response.js';
 
@@ -165,6 +166,26 @@ router.delete('/:id', handleResponse(async (req, res) => {
 
   await deleteAbsence(id);
   return { deleted: true, id };
+}));
+
+/**
+ * @api {get} /absences/recap Récapitulatif des absences de l'utilisateur connecté
+ * @apiName RecapAbsences
+ * @apiGroup Absences
+ * @apiDescription Totaux par type (somme des valeurs) sur une période.
+ * @apiQuery {Number} [year] Année (défaut : année en cours)
+ * @apiQuery {String} [from] Date de début incluse (YYYY-MM-DD) — prioritaire sur year
+ * @apiQuery {String} [to] Date de fin incluse (YYYY-MM-DD) — prioritaire sur year
+ * @apiUse JwtHeader
+ * @apiSuccess {Object} recap { from, to, total, count, byType: { <type>: { jours, count } } }
+ */
+router.get('/recap', handleResponse(async (req) => {
+  const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
+  const from = req.query.from || `${year}-01-01`;
+  const to = req.query.to || `${year}-12-31`;
+
+  const recap = await recapAbsences({ userId: req.user.id, dateFrom: from, dateTo: to });
+  return { userId: req.user.id, from, to, ...recap };
 }));
 
 export default router;

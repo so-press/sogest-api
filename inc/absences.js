@@ -155,3 +155,44 @@ export async function deleteAbsence(id) {
   const count = await db('absences').where('id', id).del();
   return count > 0;
 }
+
+/**
+ * @api {function} recapAbsences Récapitulatif des absences d'un utilisateur sur une période
+ * @apiName RecapAbsences
+ * @apiGroup Absences
+ *
+ * @apiParam {Object} options
+ * @apiParam {Number} options.userId Identifiant de l'utilisateur
+ * @apiParam {String} [options.dateFrom] Date de début incluse (YYYY-MM-DD)
+ * @apiParam {String} [options.dateTo] Date de fin incluse (YYYY-MM-DD)
+ *
+ * @apiSuccess {Object} recap { byType: { <type>: { jours, count } }, total, count }
+ */
+export async function recapAbsences({ userId, dateFrom = null, dateTo = null }) {
+  if (isNaN(userId)) throw new Error('Invalid user ID');
+
+  const query = db('absences')
+    .select('type')
+    .sum({ jours: 'valeur' })   // somme des valeurs (1 = jour, 0.5 = demi)
+    .count({ count: 'id' })
+    .where('user_id', userId)
+    .groupBy('type');
+
+  if (dateFrom) query.where('date', '>=', dateFrom);
+  if (dateTo) query.where('date', '<=', dateTo);
+
+  const rows = await query;
+
+  const byType = {};
+  let total = 0;
+  let count = 0;
+  for (const r of rows) {
+    const jours = Number(r.jours) || 0;
+    const c = Number(r.count) || 0;
+    byType[r.type] = { jours, count: c };
+    total += jours;
+    count += c;
+  }
+
+  return { byType, total, count };
+}
