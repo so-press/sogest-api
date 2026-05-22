@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(node --check inc/absences.js)",
+      "Bash(node --check routes/absences.js)",
+      "Bash(npm run *)",
+      "Bash(rm \"bruno/Absences/Absences \\(Par user\\).bru\")",
+      "Bash(node --check routes/users.js)",
+      "Bash(git -C D:/web/sogest-api status)",
+      "Bash(git -C D:/web/sogest-api diff --stat)",
+      "Bash(git *)",
+      "Bash(ls -la .env*)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.dependencies,null,2\\)\\)\")",
+      "Bash(ls node_modules/jose)",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.jose\\)\")",
+      "Bash(node --check routes/login.js)",
+      "Bash(timeout 20 node -e \"import\\('./routes/login.js'\\).then\\(m=>{console.log\\('loaded, routePath=', m.routePath, 'requireAuth=', m.requireAuth\\); process.exit\\(0\\)}\\).catch\\(e=>{console.error\\('LOAD ERROR', e\\); process.exit\\(1\\)}\\)\")"
+    ]
+  }
+}
