@@ -37,7 +37,7 @@ Each file in `routes/` must export:
 - `routePath` — string, the base URL path (e.g. `'/personnes'`)
 - `requireAuth` — boolean (optional); if true, the route additionally requires a valid JWT (not just a static token)
 
-`server.js` iterates `routes` and mounts each router automatically. No manual registration needed.
+`server.js` iterates over a `routes` object and mounts each router (applying `jwtOnlyMiddleware` first when `requireAuth` is true). When adding a new route file, you must import it at the top of `server.js` and add it to that `routes` object — the directory is not auto-scanned.
 
 ### Two-layer authentication
 
