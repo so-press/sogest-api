@@ -22,6 +22,7 @@ import * as trombinoscope from './routes/trombinoscope.js';
 import * as ssoclients from './routes/ssoclients.js';
 import * as supports from './routes/supports.js';
 import * as equipes from './routes/equipes.js';
+import * as editions from './routes/editions.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -40,7 +41,8 @@ const routes = {
   trombinoscope,
   ssoclients,
   supports,
-  equipes
+  equipes,
+  editions
 };
 
 // Load environment variables

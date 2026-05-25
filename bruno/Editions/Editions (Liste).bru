@@ -1,0 +1,26 @@
+meta {
+  name: Editions (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/editions?support=
+  body: none
+  auth: bearer
+}
+
+params:query {
+  support:
+  ~sort: publication
+  ~order: desc
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
