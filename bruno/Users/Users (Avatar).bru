@@ -7,19 +7,11 @@ meta {
 get {
   url: {{base}}/users/{{userId}}/avatar?size=medium
   body: none
-  auth: bearer
+  auth: none
 }
 
 params:query {
   size: medium
-}
-
-headers {
-  ~authorization: {{token}}
-}
-
-auth:bearer {
-  token: {{token}}
 }
 
 vars:pre-request {

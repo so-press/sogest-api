@@ -17,23 +17,31 @@ import { slugify } from './utils.js';
  * 4. URL par défaut définie dans process.env.DEFAULT_AVATAR
  *
  * @param {Object} user - L'objet utilisateur (doit contenir `email`, `avatar`)
- * @param {Object} personne - L'objet personne (doit contenir `photo`)
+ * @param {'small'|'medium'|'big'} [size='medium'] - Taille demandée
+ *   (appliquée uniquement à l'URL Gravatar via `s=`)
  * @returns {String} URL de l'avatar
  */
-export async function getUserAvatar(user) {
+export const AVATAR_SIZES = { small: 64, medium: 128, big: 256 };
 
-    const personne = await getPersonne({personne_id : user.personne_id});
-
-    if (personne?.photo && personne.photo !== 'false') {
-        return personne.photo;
-    }
+export async function getUserAvatar(user, size = 'medium') {
     if (user?.avatar) {
         return user.avatar;
     }
 
+    const px = AVATAR_SIZES[size] || AVATAR_SIZES.medium;
+
+    
+    const personne = user?.personne_id
+        ? await getPersonne({personne_id : user.personne_id})
+        : null;
+
+    if (personne?.photo && personne.photo !== 'false') {
+        return personne.photo;
+    }
+
     if (user?.email) {
         const hash = crypto.createHash('md5').update(user.email.trim().toLowerCase()).digest('hex');
-        return `https://www.gravatar.com/avatar/${hash}?d=404`;
+        return `https://www.gravatar.com/avatar/${hash}?s=${px}&d=404`;
     }
 
     return process.env.DEFAULT_AVATAR || '';
@@ -89,6 +97,7 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
             'p.prenom',
             'u.email',
             'u.level',
+            'u.avatar',
             'u.emails_alternatifs', // include this so formatUser can use it
             'l.links' // valeurs liées agrégées (JSON)
         )
