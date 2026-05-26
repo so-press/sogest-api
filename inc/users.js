@@ -1,6 +1,7 @@
 /**
  * @namespace Users
  */
+import crypto from 'node:crypto';
 import { db } from '../db.js';
 import { getPersonne } from '../inc/personnes.js';
 import { slugify } from './utils.js';
