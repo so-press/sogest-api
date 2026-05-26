@@ -55,6 +55,10 @@ const __dirname = path.dirname(__filename);
 
 // Create Express app
 const app = express();
+app.use((req, res, next) => {
+  console.log(`➡️  ${req.method} ${req.originalUrl} (origin=${req.headers.origin || '-'})`);
+  next();
+});
 app.use(express.json());
 app.use(setRequestContext);
 const port = process.env.PORT || 3000;
@@ -119,6 +123,15 @@ const pool = mysql.createPool({
 
 app.use('/doc', express.static(path.join(__dirname, 'doc')));
 
+// Routes publiques (sans authentification) : un module de route peut exporter
+// un `publicRouter` qui est monté avant `authMiddleware` sur son `routePath`.
+for (const file in routes) {
+  const route = routes[file];
+  if (route.publicRouter && route.routePath) {
+    app.use(route.routePath, route.publicRouter);
+    console.log(`🔓 Public router mounted on ${route.routePath} (${file})`);
+  }
+}
 
 // Apply auth middleware globally
 app.use(authMiddleware);
