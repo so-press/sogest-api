@@ -18,7 +18,12 @@
       "Bash(npm install *)",
       "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.jose\\)\")",
       "Bash(node --check routes/login.js)",
-      "Bash(timeout 20 node -e \"import\\('./routes/login.js'\\).then\\(m=>{console.log\\('loaded, routePath=', m.routePath, 'requireAuth=', m.requireAuth\\); process.exit\\(0\\)}\\).catch\\(e=>{console.error\\('LOAD ERROR', e\\); process.exit\\(1\\)}\\)\")"
+      "Bash(timeout 20 node -e \"import\\('./routes/login.js'\\).then\\(m=>{console.log\\('loaded, routePath=', m.routePath, 'requireAuth=', m.requireAuth\\); process.exit\\(0\\)}\\).catch\\(e=>{console.error\\('LOAD ERROR', e\\); process.exit\\(1\\)}\\)\")",
+      "Bash(node server.js)",
+      "Bash(echo \"started pid $!\")",
+      "Read(//tmp/**)",
+      "Bash(mysql *)",
+      "Bash(npm i *)"
     ]
   }
 }
