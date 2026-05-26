@@ -1,0 +1,27 @@
+meta {
+  name: Users (Avatar)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base}}/users/{{userId}}/avatar?size=medium
+  body: none
+  auth: bearer
+}
+
+params:query {
+  size: medium
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  userId: 1
+}
