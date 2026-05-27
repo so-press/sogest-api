@@ -34,17 +34,37 @@ const s3 = new S3Client({
 });
 
 /**
- * @api {post} /upload Upload a file to S3 storage
- * @apiName UploadFile
- * @apiGroup Upload
- * @apiUse JwtHeader
- * @apiBody {File} file File payload
- * @apiBody {String} [folder] Folder path in the bucket
- * @apiBody {String} [name] Desired file name
- * @apiError 409 Conflict if file already exists
- * @apiSuccess {String} url Public URL of the uploaded file
+ * @openapi
+ * /upload:
+ *   post:
+ *     tags: [Upload]
+ *     summary: Upload d'un fichier vers le stockage S3
+ *     security:
+ *       - jwtAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [file]
+ *             properties:
+ *               file:   { type: string, format: binary }
+ *               folder: { type: string, description: Dossier dans le bucket }
+ *               name:   { type: string, description: Nom de fichier souhaité }
+ *     responses:
+ *       200:
+ *         description: Upload réussi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url: { type: string, format: uri }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       409: { description: Un fichier portant ce nom existe déjà sur S3 }
  */
-
 router.post('/', upload.single('file'), handleResponse(async (req, res) => {
 
   if (!req.file) {

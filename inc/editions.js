@@ -1,20 +1,11 @@
-/**
- * @namespace Editions
- */
 import { db } from '../db.js';
 
 const SORTABLE = new Set(['publication', 'modification', 'numero', 'id']);
 
 /**
- * @api {function} listEditions Liste filtrée et triée des éditions
- * @apiName ListEditions
- * @apiGroup Editions
- *
- * @apiParam {Object} [options] Filtres
- * @apiParam {Number} [options.supportId] Filtre sur l'id du support
- * @apiParam {String} [options.sort=publication] Colonne de tri
- * @apiParam {String} [options.order=desc] Sens du tri (asc|desc)
- * @apiSuccess {Object[]} editions Liste des éditions
+ * Liste filtrée et triée des éditions.
+ * @param {{supportId?: number, sort?: string, order?: 'asc'|'desc'}} [options]
+ * @returns {Promise<Object[]>}
  */
 export async function listEditions({
   supportId = null,
@@ -35,12 +26,9 @@ export async function listEditions({
 }
 
 /**
- * @api {function} getEdition Récupère une édition par son id
- * @apiName GetEdition
- * @apiGroup Editions
- *
- * @apiParam {Number} id Identifiant de l'édition
- * @apiSuccess {Object|null} edition L'édition, ou null si introuvable
+ * Récupère une édition par son id.
+ * @param {number} id
+ * @returns {Promise<Object|null>}
  */
 export async function getEdition(id) {
   if (isNaN(id)) throw new Error('Invalid edition ID');
@@ -48,12 +36,9 @@ export async function getEdition(id) {
 }
 
 /**
- * @api {function} resolveSupportId Résout un id ou un slug de support en id numérique
- * @apiName ResolveSupportId
- * @apiGroup Editions
- *
- * @apiParam {String|Number} idOrSlug Identifiant ou slug du support
- * @apiSuccess {Number|null} id Id numérique, ou null si introuvable
+ * Résout un id ou un slug de support en id numérique.
+ * @param {string|number} idOrSlug
+ * @returns {Promise<number|null>}
  */
 export async function resolveSupportId(idOrSlug) {
   if (/^\d+$/.test(String(idOrSlug))) return parseInt(idOrSlug, 10);

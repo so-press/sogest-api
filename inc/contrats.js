@@ -1,17 +1,10 @@
-/**
- * @namespace Contrats
- */
 import { db } from '../db.js';
 import { sogestUrl } from './sogest.js';
 
 /**
- * @api {function} getContrats Récupère les contrats liés à une personne
- * @apiName GetContrats
- * @apiGroup Contrats
- *
- * @apiParam {Number} personneId Identifiant de la personne
- *
- * @apiSuccess {Object} contrats Objet contenant les contrats et droits d'auteur
+ * Récupère les contrats liés à une personne (séparés contrats / droits d'auteur).
+ * @param {number} personneId
+ * @returns {Promise<{contrats: Object[], da: Object[]}>}
  */
 export async function getContrats(personneId) {
     const query = db('contrats')

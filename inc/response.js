@@ -1,16 +1,10 @@
 /**
- * @namespace Response
- */
-// inc/handleResponse.js
-
-/**
- * @api {function} handleResponse Wrapper générique pour gérer les réponses et erreurs
- * @apiName HandleResponse
- * @apiGroup Response
- *
- * @apiParam {Function} handler Fonction asynchrone exécutant la logique
- *
- * @apiSuccess {Function} middleware Middleware Express
+ * Wrapper générique pour les handlers Express : la valeur renvoyée est sérialisée
+ * en JSON, un tableau est paginé via `?page` / `?limit`, `?count=1` ne renvoie
+ * que la pagination, et les erreurs sont attrapées et renvoyées en 500 (ou le
+ * `res.status(...)` posé par le handler).
+ * @param {(req: import('express').Request, res: import('express').Response) => Promise<any>} handler
+ * @returns {import('express').RequestHandler}
  */
 export function handleResponse(handler) {
   return async (req, res, next) => {

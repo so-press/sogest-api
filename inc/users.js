@@ -1,6 +1,3 @@
-/**
- * @namespace Users
- */
 import crypto from 'node:crypto';
 import { db } from '../db.js';
 import { getPersonne } from '../inc/personnes.js';
@@ -48,13 +45,9 @@ export async function getUserAvatar(user, size = 'medium') {
 }
 
 /**
- * @api {function} getUser Récupère un utilisateur par son identifiant
- * @apiName GetUserFunc
- * @apiGroup Users
- *
- * @apiParam {Number} id Identifiant de l'utilisateur
- *
- * @apiSuccess {Object|false} user Utilisateur ou false si introuvable
+ * Récupère un utilisateur par son id.
+ * @param {number} id
+ * @returns {Promise<Object|false|undefined>} Utilisateur, false si introuvable
  */
 export async function getUser(id) {
     const rsp =  await getUsers({ id });
@@ -64,16 +57,9 @@ export async function getUser(id) {
     }
 }
 /**
- * @api {function} getUsers Récupère une liste d'utilisateurs selon différents critères
- * @apiName GetUsersFunc
- * @apiGroup Users
- *
- * @apiParam {Object} [options]
- * @apiParam {Number} [options.level] Filtrer par niveau
- * @apiParam {Number} [options.id] Filtrer par identifiant
- * @apiParam {Object} [options.clause] Clause personnalisée
- *
- * @apiSuccess {Object[]} users Utilisateurs formatés
+ * Liste les utilisateurs actifs selon différents critères (level, id, clause SQL).
+ * @param {{level?: number, id?: number, clause?: {raw: string, params: any[]}}} [options]
+ * @returns {Promise<Object[]>}
  */
 export async function getUsers({ level = null, id = null, clause = null } = {}) {
     // Sous-requête agrégeant les valeurs liées (table `links`) par utilisateur.
@@ -123,13 +109,9 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
 }
 
 /**
- * @api {function} getUserByEmail Recherche un utilisateur par son adresse e-mail
- * @apiName GetUserByEmail
- * @apiGroup Users
- *
- * @apiParam {String} email Adresse e-mail à rechercher
- *
- * @apiSuccess {Object|undefined} user Utilisateur trouvé ou undefined
+ * Recherche un utilisateur par email principal, puis par `emails_alternatifs`.
+ * @param {string} email
+ * @returns {Promise<Object|undefined>}
  */
 export async function getUserByEmail(email) {
     // First try: match against primary email field

@@ -1,6 +1,3 @@
-/**
- * @namespace Options
- */
 import { db } from '../db.js';
 import { parse } from 'csv-parse/sync'
 

@@ -7,26 +7,39 @@ export const routePath = '/personne';
 export const requireAuth = true;
 
 /**
- * @api {get} /personne Infos utilisateur connecté
- * @apiName GetCurrentPersonne
- * @apiGroup Personne
- * @apiUse JwtHeader
- * @apiSuccess {Object} personne Informations de la personne
+ * @openapi
+ * /personne:
+ *   get:
+ *     tags: [Personne]
+ *     summary: Infos de la personne liée à l'utilisateur connecté
+ *     security:
+ *       - jwtAuth: []
+ *     responses:
+ *       200: { description: Informations de la personne, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-
 router.get('/', handleResponse(async (req, res) => {
     const personne = await getPersonne({ id: req.user.personne_id });
     return personne;
 }));
 
 /**
- * @api {put} /personne Mise à jour de la personne connectée
- * @apiName UpdateCurrentPersonne
- * @apiGroup Personne
- * @apiBody {Object} body Données de mise à jour
- * @apiSuccess {Object} personne Données mises à jour
+ * @openapi
+ * /personne:
+ *   put:
+ *     tags: [Personne]
+ *     summary: Mise à jour de la personne connectée
+ *     security:
+ *       - jwtAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { type: object, additionalProperties: true }
+ *     responses:
+ *       200: { description: Données mises à jour, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-
 router.put('/', handleResponse(async (req, res) => {
     const { user } = req
     const data = req.body;

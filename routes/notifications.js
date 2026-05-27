@@ -10,10 +10,22 @@ const router = express.Router();
 export const routePath = '/notifications';
 
 /**
- * @api {get} /notifications Liste complète des notifications
- * @apiName GetAllNotifications
- * @apiGroup Notifications
- * @apiSuccess {Object[]} notifications Toutes les notifications
+ * @openapi
+ * /notifications:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Notifications de l'utilisateur courant
+ *     responses:
+ *       200:
+ *         description: Liste paginée des notifications
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req) => {
   return await getNotificationsByUser(req.user.id);

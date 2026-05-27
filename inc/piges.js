@@ -1,21 +1,13 @@
-/**
- * @namespace Piges
- */
 import { db } from '../db.js';
 import { sogestUrl } from './sogest.js';
 import { kebabToCamel, slugify } from './utils.js';
 
 
 /**
- * @api {function} getPiges Récupère les piges d'une personne
- * @apiName GetPiges
- * @apiGroup Piges
- *
- * @apiParam {Number} personneId Identifiant de la personne
- * @apiParam {Object} [options]
- * @apiParam {String} [options.type] Filtrer sur un type de contenu
- *
- * @apiSuccess {Object} piges Piges regroupées par type
+ * Récupère les piges d'une personne, regroupées par type de contenu.
+ * @param {number} personneId
+ * @param {{type?: string}} [options] Filtrer sur un type de contenu
+ * @returns {Promise<Object>}
  */
 export async function getPiges(personneId, options = {}) {
     const type_contenu = options.type || '';

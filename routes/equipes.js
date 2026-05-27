@@ -6,12 +6,24 @@ const router = express.Router();
 export const routePath = '/equipes';
 
 /**
- * @api {get} /equipes Liste des équipes
- * @apiName GetEquipes
- * @apiGroup Equipes
- * @apiParam {Boolean} [all=false] Si vrai (`?all=1`), inclut aussi les équipes non visibles
- * @apiUse globalToken
- * @apiSuccess {Object[]} data Liste des équipes (visibles par défaut, hors corbeille)
+ * @openapi
+ * /equipes:
+ *   get:
+ *     tags: [Equipes]
+ *     summary: Liste des équipes (visibles, hors corbeille par défaut)
+ *     parameters:
+ *       - { in: query, name: all, schema: { type: boolean, default: false }, description: Si vrai, inclut aussi les équipes non visibles }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des équipes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req, res) => {
   const all = ['1', 'true', 'yes'].includes(String(req.query.all).toLowerCase());
@@ -19,13 +31,25 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /equipes/user Équipes de l'utilisateur connecté
- * @apiName GetMyEquipes
- * @apiGroup Equipes
- * @apiDescription L'utilisateur est déterminé par le token JWT. Nécessite un JWT (pas un token statique).
- * @apiUse JwtHeader
- * @apiSuccess {Object[]} data Liste des équipes de l'utilisateur (avec son `role`)
- * @apiError 401 Authentification JWT requise
+ * @openapi
+ * /equipes/user:
+ *   get:
+ *     tags: [Equipes]
+ *     summary: Équipes de l'utilisateur connecté
+ *     description: L'utilisateur est déterminé par le token JWT. Un token applicatif statique est refusé ici.
+ *     security:
+ *       - jwtAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des équipes de l'utilisateur (avec son `role`)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/user', handleResponse(async (req, res) => {
   if (!req.user) {
@@ -36,13 +60,17 @@ router.get('/user', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /equipes/slug/:slug Détails d'une équipe par son slug
- * @apiName GetEquipeBySlug
- * @apiGroup Equipes
- * @apiParam {String} slug Slug de l'équipe
- * @apiUse globalToken
- * @apiSuccess {Object} equipe Données de l'équipe
- * @apiError 404 Équipe introuvable
+ * @openapi
+ * /equipes/slug/{slug}:
+ *   get:
+ *     tags: [Equipes]
+ *     summary: Détails d'une équipe par son slug
+ *     parameters:
+ *       - { in: path, name: slug, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Données de l'équipe, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/slug/:slug', handleResponse(async (req, res) => {
   const equipe = await getEquipeBySlug(req.params.slug);
@@ -54,13 +82,20 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /equipes/:id Détails d'une équipe par son id ou son slug
- * @apiName GetEquipe
- * @apiGroup Equipes
- * @apiParam {Number|String} id Identifiant ou slug de l'équipe
- * @apiUse globalToken
- * @apiSuccess {Object} equipe Données de l'équipe
- * @apiError 404 Équipe introuvable
+ * @openapi
+ * /equipes/{id}:
+ *   get:
+ *     tags: [Equipes]
+ *     summary: Détails d'une équipe par son id ou son slug
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, description: Identifiant numérique ou slug }
+ *     responses:
+ *       200: { description: Données de l'équipe, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:equipeId', handleResponse(async (req, res) => {
   const equipe = await getEquipe(req.params.equipeId);

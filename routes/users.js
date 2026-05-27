@@ -11,11 +11,22 @@ export const routePath = '/users';
 
 
 /**
- * @api {get} /users Liste des utilisateurs
- * @apiName GetUsers
- * @apiGroup Users
- * @apiUse globalToken
- * @apiSuccess {Object[]} users Liste des utilisateurs
+ * @openapi
+ * /users:
+ *   get:
+ *     tags: [Users]
+ *     summary: Liste des utilisateurs
+ *     responses:
+ *       200:
+ *         description: Liste paginée des utilisateurs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req, res) => {
     const rows = await getUsers();
@@ -23,12 +34,17 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /users/:id Détails d'un utilisateur
- * @apiName GetUser
- * @apiGroup Users
- * @apiParam {Number} id ID de l'utilisateur
- * @apiUse globalToken
- * @apiSuccess {Object} user Informations de l'utilisateur
+ * @openapi
+ * /users/{id}:
+ *   get:
+ *     tags: [Users]
+ *     summary: Détails d'un utilisateur
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: Informations de l'utilisateur, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', handleResponse(async (req, res) => {
     const rows = await getUsers({ id: req.params.id });
@@ -46,30 +62,55 @@ router.get('/:id', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /users/level/:level Utilisateurs par niveau
- * @apiName GetUsersByLevel
- * @apiGroup Users
- * @apiParam {String} level Niveau d'accès
- * @apiUse globalToken
- * @apiSuccess {Object[]} users Utilisateurs correspondants
+ * @openapi
+ * /users/level/{level}:
+ *   get:
+ *     tags: [Users]
+ *     summary: Utilisateurs par niveau d'accès
+ *     parameters:
+ *       - { in: path, name: level, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Utilisateurs correspondants
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });
     return rows;
 }));
 
 /**
- * @api {get} /users/:id/avatar Image avatar d'un utilisateur
- * @apiName GetUserAvatar
- * @apiGroup Users
- * @apiParam {Number} id ID de l'utilisateur
- * @apiQuery {String="small","medium","big"} [size=medium] Taille demandée
- *   (small=64px, medium=128px, big=256px). L'image source est redimensionnée
- *   carrée (cover) à la taille demandée.
- * @apiUse globalToken
- * @apiDescription Renvoie le contenu binaire de l'avatar redimensionné.
- * Si Gravatar renvoie 404, bascule sur l'image définie par `DEFAULT_AVATAR`.
+ * @openapi
+ * /users/{id}/avatar:
+ *   get:
+ *     tags: [Users]
+ *     summary: Avatar (image binaire) d'un utilisateur
+ *     description: |
+ *       Endpoint **public** (aucune authentification). Renvoie le contenu binaire de
+ *       l'avatar redimensionné carré (cover). Si Gravatar renvoie 404, bascule sur
+ *       l'image définie par `DEFAULT_AVATAR`.
+ *     security: []
+ *     parameters:
+ *       - { in: path,  name: id,   required: true, schema: { type: integer } }
+ *       - in: query
+ *         name: size
+ *         required: false
+ *         schema: { type: string, enum: [small, medium, big], default: medium }
+ *         description: small=64px, medium=128px, big=256px
+ *     responses:
+ *       200:
+ *         description: Image binaire
+ *         content:
+ *           image/*:
+ *             schema: { type: string, format: binary }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 async function safeFetch(url, timeoutMs = 5000) {
     if (!url) return null;

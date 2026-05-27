@@ -6,13 +6,23 @@ const router = express.Router();
 export const routePath = '/personnes';
 
 /**
- * @api {get} /personnes Liste des personnes
- * @apiName GetPersonnes
- * @apiGroup Personnes
- * @apiUse globalToken
- * @apiSuccess {Object[]} personnes Liste des personnes
+ * @openapi
+ * /personnes:
+ *   get:
+ *     tags: [Personnes]
+ *     summary: Liste des personnes
+ *     responses:
+ *       200:
+ *         description: Liste des personnes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-
 router.get('/', handleResponse(async (req, res) => {
   const personnes = await getPersonnes();
   return personnes;
@@ -20,12 +30,17 @@ router.get('/', handleResponse(async (req, res) => {
 
 
 /**
- * @api {get} /personnes/:id Détails d'une personne
- * @apiName GetPersonne
- * @apiGroup Personnes
- * @apiParam {Number} id ID de la personne
- * @apiUse globalToken
- * @apiSuccess {Object} personne Données de la personne
+ * @openapi
+ * /personnes/{id}:
+ *   get:
+ *     tags: [Personnes]
+ *     summary: Détails d'une personne
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer }, description: ID de la personne }
+ *     responses:
+ *       200: { description: Données de la personne, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', handleResponse(async (req, res) => {
   const personne = await getPersonne({ id: req.params.id });
@@ -34,13 +49,21 @@ router.get('/:id', handleResponse(async (req, res) => {
 
 
 /**
- * @api {put} /personnes/:id Mise à jour d'une personne
- * @apiName UpdatePersonne
- * @apiGroup Personnes
- * @apiParam {Number} id ID de la personne à modifier
- * @apiBody {Object} body Données à mettre à jour
- * @apiUse globalToken
- * @apiSuccess {Object} personne Données modifiées
+ * @openapi
+ * /personnes/{id}:
+ *   put:
+ *     tags: [Personnes]
+ *     summary: Mise à jour d'une personne
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { type: object, additionalProperties: true }
+ *     responses:
+ *       200: { description: Données modifiées, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.put('/:id', handleResponse(async (req, res) => {
   const id = req.params.id;

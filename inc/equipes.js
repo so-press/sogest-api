@@ -144,12 +144,9 @@ async function decorateList(rows) {
 }
 
 /**
- * @api {function} getEquipes Retourne la liste des équipes (non corbeille)
- * @apiName GetEquipesFunc
- * @apiGroup Equipes
- * @apiParam {Object} [options]
- * @apiParam {Boolean} [options.all=false] Si vrai, inclut aussi les équipes non visibles
- * @apiSuccess {Object[]} equipes Liste des équipes
+ * Liste des équipes non corbeille (visibles par défaut).
+ * @param {{all?: boolean}} [options] all=true inclut aussi les équipes non visibles
+ * @returns {Promise<Object[]>}
  */
 export async function getEquipes({ all = false } = {}) {
   const query = db('equipes')
@@ -165,11 +162,9 @@ export async function getEquipes({ all = false } = {}) {
 }
 
 /**
- * @api {function} getEquipesByUserId Retourne les équipes auxquelles un utilisateur est rattaché
- * @apiName GetEquipesByUserIdFunc
- * @apiGroup Equipes
- * @apiParam {Number} userId Identifiant de l'utilisateur
- * @apiSuccess {Object[]} equipes Liste des équipes de l'utilisateur (avec son `role`)
+ * Liste des équipes auxquelles un utilisateur est rattaché (avec son `role`).
+ * @param {number} userId
+ * @returns {Promise<Object[]>}
  */
 export async function getEquipesByUserId(userId) {
   if (isNaN(userId)) throw new Error('Invalid user ID');
@@ -185,11 +180,9 @@ export async function getEquipesByUserId(userId) {
 }
 
 /**
- * @api {function} getEquipe Retourne une équipe par son id ou son slug
- * @apiName GetEquipeFunc
- * @apiGroup Equipes
- * @apiParam {Number|String} idOrSlug Identifiant numérique ou slug
- * @apiSuccess {Object} equipe Données de l'équipe
+ * Récupère une équipe par son id numérique ou son slug.
+ * @param {number|string} idOrSlug
+ * @returns {Promise<Object|null>}
  */
 export async function getEquipe(idOrSlug) {
   if (/^\d+$/.test(String(idOrSlug))) {
@@ -206,11 +199,9 @@ export async function getEquipe(idOrSlug) {
 }
 
 /**
- * @api {function} getEquipeBySlug Retourne une équipe par son slug
- * @apiName GetEquipeBySlugFunc
- * @apiGroup Equipes
- * @apiParam {String} slug Slug de l'équipe
- * @apiSuccess {Object} equipe Données de l'équipe
+ * Récupère une équipe par son slug.
+ * @param {string} slug
+ * @returns {Promise<Object|null>}
  */
 export async function getEquipeBySlug(slug) {
   const list = await getEquipes({ all: true });

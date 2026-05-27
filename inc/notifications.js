@@ -1,14 +1,8 @@
-/**
- * @namespace Notifications
- */
 import { db } from '../db.js';
 
 /**
- * @api {function} getNotifications Retourne toutes les notifications
- * @apiName GetNotificationsFunc
- * @apiGroup Notifications
- *
- * @apiSuccess {Object[]} notifications Liste des notifications formatées
+ * Retourne toutes les notifications.
+ * @returns {Promise<Object[]>}
  */
 export async function getNotifications() {
   const query = db('notifications')
@@ -19,12 +13,9 @@ export async function getNotifications() {
 }
 
 /**
- * @api {function} getNotificationsByUser Retourne les notifications d’un utilisateur
- * @apiName GetNotificationsByUserFunc
- * @apiGroup Notifications
- *
- * @apiParam {Number} user_id ID de l'utilisateur
- * @apiSuccess {Object[]} notifications Notifications liées à l'utilisateur
+ * Retourne les notifications d'un utilisateur.
+ * @param {number} user_id
+ * @returns {Promise<Object[]>}
  */
 export async function getNotificationsByUser(user_id) {
   const query = db('notifications')

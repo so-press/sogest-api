@@ -22,15 +22,38 @@ function getSsoJwks() {
 }
 
 /**
- * @api {post} /login Authentification
- * @apiName Login
- * @apiGroup Auth
- * @apiBody {String} email Email de l'utilisateur
- * @apiBody {String} password Mot de passe
- * @apiUse globalToken
- * @apiSuccess {Object} session Informations de session
+ * @openapi
+ * /login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Authentification par email / mot de passe
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:    { type: string, format: email }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200:
+ *         description: Session créée
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 token:   { type: string, description: JWT sogest }
+ *                 userId:  { type: integer }
+ *                 user:    { type: object }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-
 router.post('/', handleResponse(async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -84,17 +107,40 @@ router.post('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {post} /login/sso Authentification via id_token SSO
- * @apiName LoginSso
- * @apiGroup Auth
- * @apiDescription Échange un `id_token` OpenID Connect (sso.sopress.com) contre un
- * JWT sogest. Appelé avec un token applicatif statique (l'utilisateur n'a pas encore de JWT).
- * @apiBody {String} id_token id_token signé par le SSO (RS256)
- * @apiUse globalToken
- * @apiSuccess {Object} session Informations de session (même format que POST /login)
- * @apiError 400 id_token manquant
- * @apiError 401 id_token invalide (signature, iss, aud ou exp)
- * @apiError 403 Aucun utilisateur sogest ne correspond à l'email du token
+ * @openapi
+ * /login/sso:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Authentification via id_token SSO
+ *     description: |
+ *       Échange un `id_token` OpenID Connect (sso.sopress.com) contre un JWT sogest.
+ *       Appelé avec un token applicatif statique (l'utilisateur n'a pas encore de JWT).
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id_token]
+ *             properties:
+ *               id_token: { type: string, description: id_token signé par le SSO (RS256) }
+ *     responses:
+ *       200:
+ *         description: Session créée (même format que POST /login)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 token:   { type: string }
+ *                 userId:  { type: integer }
+ *                 user:    { type: object }
+ *       400: { description: id_token manquant }
+ *       401: { description: id_token invalide (signature, iss, aud ou exp) }
+ *       403: { description: Aucun utilisateur sogest ne correspond à l'email du token }
  */
 router.post('/sso', handleResponse(async (req, res) => {
     const { id_token } = req.body;

@@ -1,6 +1,3 @@
-/**
- * @namespace Absences
- */
 import dayjs from 'dayjs';
 import { db } from '../db.js';
 
@@ -10,21 +7,9 @@ const SORTABLE = new Set(['date', 'valeur', 'type', 'creation', 'id']);
 const EDITABLE = ['date', 'type', 'valeur'];
 
 /**
- * @api {function} listAbsences Liste filtrée et triée des absences
- * @apiName ListAbsences
- * @apiGroup Absences
- *
- * @apiParam {Object} [options] Filtres
- * @apiParam {Number} [options.userId] Filtre sur l'utilisateur
- * @apiParam {String} [options.type] Filtre sur le type d'absence
- * @apiParam {String} [options.dateFrom] Date de début (incluse, YYYY-MM-DD)
- * @apiParam {String} [options.dateTo] Date de fin (incluse, YYYY-MM-DD)
- * @apiParam {Number} [options.year] Filtre sur l'année
- * @apiParam {Number} [options.month] Filtre sur le mois (1-12)
- * @apiParam {String} [options.sort=date] Colonne de tri
- * @apiParam {String} [options.order=desc] Sens du tri (asc|desc)
- *
- * @apiSuccess {Object[]} absences Liste des absences
+ * Liste filtrée et triée des absences.
+ * @param {{userId?: number, type?: string, dateFrom?: string, dateTo?: string, year?: number, month?: number, sort?: string, order?: 'asc'|'desc'}} [options]
+ * @returns {Promise<Object[]>}
  */
 export async function listAbsences({
   userId = null,
@@ -66,12 +51,9 @@ export async function listAbsences({
 }
 
 /**
- * @api {function} getAbsence Récupère une absence par son id
- * @apiName GetAbsence
- * @apiGroup Absences
- *
- * @apiParam {Number} id Identifiant de l'absence
- * @apiSuccess {Object|null} absence L'absence, ou null si introuvable
+ * Récupère une absence par son id.
+ * @param {number} id
+ * @returns {Promise<Object|null>}
  */
 export async function getAbsence(id) {
   if (isNaN(id)) throw new Error('Invalid absence ID');
@@ -79,30 +61,19 @@ export async function getAbsence(id) {
 }
 
 /**
- * @api {function} findAbsence Recherche une absence pour un utilisateur à une date
- * @apiName FindAbsence
- * @apiGroup Absences
- *
- * @apiParam {Number} userId Identifiant de l'utilisateur
- * @apiParam {String} date Date (YYYY-MM-DD)
- * @apiSuccess {Object|null} absence L'absence existante, ou null
+ * Recherche une absence pour un utilisateur à une date donnée.
+ * @param {number} userId
+ * @param {string} date YYYY-MM-DD
+ * @returns {Promise<Object|null>}
  */
 export async function findAbsence(userId, date) {
   return (await db('absences').where({ user_id: userId, date }).first()) ?? null;
 }
 
 /**
- * @api {function} createAbsence Crée une absence
- * @apiName CreateAbsence
- * @apiGroup Absences
- *
- * @apiParam {Object} data Données de l'absence
- * @apiParam {Number} data.user_id Identifiant de l'utilisateur
- * @apiParam {String} data.date Date (YYYY-MM-DD)
- * @apiParam {String} [data.type=conge] Type d'absence
- * @apiParam {Number} [data.valeur=1] Valeur (1 = journée, 0.5 = demi-journée)
- *
- * @apiSuccess {Object} absence L'absence créée
+ * Crée une absence.
+ * @param {{user_id: number, date: string, type?: string, valeur?: number}} data
+ * @returns {Promise<Object>}
  */
 export async function createAbsence({ user_id, date, type = 'conge', valeur = 1 }) {
   if (!user_id || isNaN(user_id)) throw new Error('Invalid user ID');
@@ -120,13 +91,10 @@ export async function createAbsence({ user_id, date, type = 'conge', valeur = 1 
 }
 
 /**
- * @api {function} updateAbsence Met à jour une absence
- * @apiName UpdateAbsence
- * @apiGroup Absences
- *
- * @apiParam {Number} id Identifiant de l'absence
- * @apiParam {Object} data Champs à modifier (user_id, date, type, valeur)
- * @apiSuccess {Boolean} updated true si une ligne a été modifiée
+ * Met à jour une absence. Seuls les champs `date`, `type` et `valeur` sont modifiables.
+ * @param {number} id
+ * @param {Object} data
+ * @returns {Promise<boolean>} true si une ligne a été modifiée
  */
 export async function updateAbsence(id, data) {
   if (isNaN(id)) throw new Error('Invalid absence ID');
@@ -143,12 +111,9 @@ export async function updateAbsence(id, data) {
 }
 
 /**
- * @api {function} deleteAbsence Supprime une absence
- * @apiName DeleteAbsence
- * @apiGroup Absences
- *
- * @apiParam {Number} id Identifiant de l'absence
- * @apiSuccess {Boolean} deleted true si une ligne a été supprimée
+ * Supprime une absence.
+ * @param {number} id
+ * @returns {Promise<boolean>}
  */
 export async function deleteAbsence(id) {
   if (isNaN(id)) throw new Error('Invalid absence ID');
@@ -157,16 +122,9 @@ export async function deleteAbsence(id) {
 }
 
 /**
- * @api {function} recapAbsences Récapitulatif des absences d'un utilisateur sur une période
- * @apiName RecapAbsences
- * @apiGroup Absences
- *
- * @apiParam {Object} options
- * @apiParam {Number} options.userId Identifiant de l'utilisateur
- * @apiParam {String} [options.dateFrom] Date de début incluse (YYYY-MM-DD)
- * @apiParam {String} [options.dateTo] Date de fin incluse (YYYY-MM-DD)
- *
- * @apiSuccess {Object} recap { byType: { <type>: { jours, count } }, total, count }
+ * Récapitulatif des absences d'un utilisateur sur une période (totaux par type).
+ * @param {{userId: number, dateFrom?: string, dateTo?: string}} options
+ * @returns {Promise<{byType: Object<string, {jours: number, count: number}>, total: number, count: number}>}
  */
 export async function recapAbsences({ userId, dateFrom = null, dateTo = null }) {
   if (isNaN(userId)) throw new Error('Invalid user ID');

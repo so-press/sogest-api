@@ -77,4 +77,6 @@ Each domain has a helper file (`inc/personnes.js`, `inc/users.js`, etc.) that en
 
 ### API documentation
 
-Inline `@api` JSDoc comments in `routes/` and `inc/` are compiled by `apidoc` into `doc/` (served at `/doc`). Run `npm run docs` after adding or changing endpoint docs.
+Inline `@openapi` JSDoc comments (YAML) in `routes/*.js` are compilés en OpenAPI 3.0 par `swagger-jsdoc` via `tools/gen-docs.js`. La sortie est `doc/openapi.json` + un `doc/index.html` qui charge le viewer **Scalar** depuis le CDN. `doc/` est servi statiquement sur `/doc`. Run `npm run docs` after adding or changing endpoint docs.
+
+Les schémas de sécurité (`bearerAuth` = JWT ou token statique, `jwtAuth` = JWT obligatoire) et les réponses communes (`Unauthorized`, `NotFound`, `BadRequest`) sont définis dans `tools/gen-docs.js` et référencés via `$ref`.

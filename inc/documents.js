@@ -1,6 +1,3 @@
-/**
- * @namespace Documents
- */
 import { db } from '../db.js';
 import { getContrats } from './contrats.js';
 import { getPiges } from './piges.js';
@@ -8,17 +5,10 @@ import { sogestBaseUrl, sogestUrl } from './sogest.js';
 import { kebabToCamel, md5, choseDate } from './utils.js';
 
 /**
- * @api {function} getDocument Récupère un document précis lié à une personne
- * @apiName GetDocument
- * @apiGroup Documents
- *
- * @apiParam {Number} personneId Identifiant de la personne
- * @apiParam {String} origin Origine du document (ex: "pige", "contrat", "document")
- * @apiParam {Number} id Identifiant du document
- *
- * @apiSuccess {Object} document Document correspondant aux critères
+ * Récupère un document précis lié à une personne (par origine et id).
+ * @param {{personneId: number, origin: string, id: number}} params
+ * @returns {Promise<Object|undefined>}
  */
-
 export async function getDocument(params = {}) {
     const { personneId, origin, id } = params;
     const documents = await getDocumentsForPersonne(personneId);
@@ -28,15 +18,12 @@ export async function getDocument(params = {}) {
         return document;
     }
 }
+
 /**
- * @api {function} getDocumentsForPersonne Récupère l'ensemble des documents liés à une personne
- * @apiName GetDocumentsForPersonne
- * @apiGroup Documents
- *
- * @apiParam {Number} personneId Identifiant de la personne
- * @apiParam {Object} [options] Options de filtrage
- *
- * @apiSuccess {Object[]} documents Liste formatée des documents
+ * Liste l'ensemble des documents liés à une personne (piges, contrats, uploads).
+ * @param {number} personneId
+ * @param {{date?: string, type?: string}} [options]
+ * @returns {Promise<Object[]>}
  */
 export async function getDocumentsForPersonne(personneId, options = {}) {
     const contrats = await getContrats(personneId);
@@ -85,13 +72,9 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
 
 
 /**
- * @api {function} getUploadedDocuments Retourne les documents téléversés pour une personne
- * @apiName GetUploadedDocuments
- * @apiGroup Documents
- *
- * @apiParam {Number} personneId Identifiant de la personne
- *
- * @apiSuccess {Object} documents Documents classés par type
+ * Documents téléversés pour une personne, classés par `type_document` (camelCase).
+ * @param {number} personneId
+ * @returns {Promise<Object<string, Object[]>>}
  */
 export async function getUploadedDocuments(personneId) {
     const query = db('documents')
@@ -113,7 +96,3 @@ export async function getUploadedDocuments(personneId) {
     })
     return all;
 }
-
-
-
-

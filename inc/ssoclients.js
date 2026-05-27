@@ -34,10 +34,8 @@ async function formatSsoclient(row) {
 }
 
 /**
- * @api {function} getSsoclients Retourne la liste des SSO clients actifs
- * @apiName GetSsoclientsFunc
- * @apiGroup Ssoclients
- * @apiSuccess {Object[]} ssoclients Liste des clients SSO
+ * Liste des SSO clients non corbeille, triés par client_id.
+ * @returns {Promise<Object[]>}
  */
 export async function getSsoclients() {
   const rows = await db('ssoclients')
@@ -50,11 +48,12 @@ export async function getSsoclients() {
 
 
 /**
- * @api {function} getSsoclient Retourne un SSO client par son id ou client_id
- * @apiName GetSsoclientFunc
- * @apiGroup Ssoclients
- * @apiParam {Number|String} idOrClientId Identifiant numérique ou client_id
- * @apiSuccess {Object} ssoclient Données du client SSO
+ * Récupère un SSO client par son `slug`. Fallback : recherche dans les
+ * variantes (JSON `[{clientId, clientName}, …]`) de chaque ssoclient et
+ * renvoie le parent dont une variante matche, avec `subtitle` remplacé par
+ * le `clientName` de la variante.
+ * @param {string} slug
+ * @returns {Promise<Object|null>}
  */
 export async function getSsoclientBySlug(slug) {
   const direct = await db('ssoclients')

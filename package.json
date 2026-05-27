@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "docs": "apidoc -i routes/ -o doc/ && apidoc-markdown -i routes/ -o doc/api.md",
+    "docs": "node tools/gen-docs.js",
     "postinstall": "npm run docs"
   },
   "author": "",
@@ -28,9 +28,8 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "apidoc": "^1.2.0",
-    "apidoc-markdown": "^7.3.2",
     "docdash": "^2.0.2",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "swagger-jsdoc": "^6.2.8"
   }
 }

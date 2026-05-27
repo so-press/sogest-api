@@ -1,6 +1,3 @@
-/**
- * @namespace Historique
- */
 import { db } from '../db.js';
 import { getRequest } from './request.js';
 /**

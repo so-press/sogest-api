@@ -1,17 +1,8 @@
-
 /**
- * @namespace Sogest
- */
-
-/**
- * @api {function} sogestUrl Construit une URL complète vers l'API SOGEST
- * @apiName SogestUrl
- * @apiGroup Sogest
- *
- * @apiParam {String} uri URI à ajouter à l'URL de base
- * @apiParam {Object} query Paramètres de requête optionnels
- *
- * @apiSuccess {String} url URL complète construite
+ * Construit une URL complète vers SOGEST à partir d'une URI et de paramètres.
+ * @param {string} uri
+ * @param {Object} [query]
+ * @returns {string}
  */
 export function sogestUrl(uri, query = {}) {
   const base = sogestBaseUrl();
@@ -23,14 +14,10 @@ export function sogestUrl(uri, query = {}) {
 
 
 /**
- * @api {function} sogestBaseUrl Retourne l'URL de base configurée pour SOGEST
- * @apiName SogestBaseUrl
- * @apiGroup Sogest
- *
- * @apiSuccess {String} url URL de base
+ * URL de base configurée pour SOGEST (slash final garanti).
+ * @returns {string}
  */
 export function sogestBaseUrl() {
   const base = process.env.SOGEST_URL.replace(/\/+$/, '')+'/';
   return base;
 }
-

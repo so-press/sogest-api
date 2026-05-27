@@ -1,13 +1,11 @@
 /**
- * @namespace QueryBuilder
+ * Accumulateur de conditions `AND` et d'une clause `ORDER BY` pour construire une
+ * requête SQL paramétrée. Voir aussi `inc/utils.js` et knex (`db.js`) pour les
+ * usages plus complexes.
  */
 export class QueryBuilder {
   /**
-   * @api {function} QueryBuilder Constructeur
-   * @apiName QueryBuilder
-   * @apiGroup QueryBuilder
-   *
-   * @apiParam {String} base Base de la requête SQL
+   * @param {string} base SQL de base, déjà terminé par un `WHERE 1=1` (les ajouts sont préfixés par `AND`)
    */
   constructor(base) {
     this.sql = base;
@@ -17,12 +15,10 @@ export class QueryBuilder {
   }
 
   /**
-   * @api {function} where Ajoute une condition WHERE
-   * @apiName QueryWhere
-   * @apiGroup QueryBuilder
-   * @apiParam {String} condition Condition SQL
-   * @apiParam {*} param Valeur associée
-   * @apiSuccess {QueryBuilder} builder Instance courante
+   * Ajoute une condition `AND <condition>` avec sa valeur.
+   * @param {string} condition
+   * @param {*} param
+   * @returns {QueryBuilder}
    */
   where(condition, param) {
     this.conditions.push(condition);
@@ -30,21 +26,15 @@ export class QueryBuilder {
     return this;
   }
 
-  /**
-   * @api {function} and Alias de where
-   * @apiName QueryAnd
-   * @apiGroup QueryBuilder
-   */
+  /** Alias de {@link where}. */
   and(condition, param) {
     return this.where(condition, param);
   }
 
   /**
-   * @api {function} orderBy Ajoute un ORDER BY
-   * @apiName QueryOrderBy
-   * @apiGroup QueryBuilder
-   * @apiParam {String} order Clause ORDER BY
-   * @apiSuccess {QueryBuilder} builder Instance courante
+   * Définit la clause ORDER BY.
+   * @param {string} order
+   * @returns {QueryBuilder}
    */
   orderBy(order) {
     this.order = order;
@@ -52,10 +42,8 @@ export class QueryBuilder {
   }
 
   /**
-   * @api {function} build Construit la requête complète
-   * @apiName QueryBuild
-   * @apiGroup QueryBuilder
-   * @apiSuccess {Object} query Objet contenant la chaîne SQL et les paramètres
+   * Construit la requête finale.
+   * @returns {{sql: string, params: any[]}}
    */
   build() {
     let fullQuery = this.sql;
@@ -68,4 +56,3 @@ export class QueryBuilder {
     return { sql: fullQuery, params: this.params };
   }
 }
-

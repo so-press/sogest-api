@@ -6,33 +6,44 @@ const router = express.Router();
 export const routePath = '/ssoclients';
 
 /**
- * @api {get} /ssoclients Liste des SSO clients
- * @apiName GetSsoclients
- * @apiGroup Ssoclients
- * @apiUse globalToken
- * @apiSuccess {Object[]} data Liste des clients SSO (client_secret exclu)
+ * @openapi
+ * /ssoclients:
+ *   get:
+ *     tags: [SSO Clients]
+ *     summary: Liste des SSO clients (client_secret exclu)
+ *     responses:
+ *       200:
+ *         description: Liste paginée des SSO clients
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req, res) => {
   return await getSsoclients();
 }));
 
 /**
- * @api {get} /ssoclients/:id Détails d'un SSO client
- * @apiName GetSsoclient
- * @apiGroup Ssoclients
- * @apiParam {String} id Identifiant numérique ou client_id du client SSO
- * @apiUse globalToken
- * @apiSuccess {Object} ssoclient Données du client SSO (client_secret exclu)
- * @apiError 404 Client SSO introuvable
- */
-/**
- * @api {get} /ssoclients/slug/:slug Détails d'un SSO client par son slug
- * @apiName GetSsoclientBySlug
- * @apiGroup Ssoclients
- * @apiParam {String} slug Slug du client SSO
- * @apiUse globalToken
- * @apiSuccess {Object} ssoclient Données du client SSO
- * @apiError 404 Client SSO introuvable
+ * @openapi
+ * /ssoclients/slug/{slug}:
+ *   get:
+ *     tags: [SSO Clients]
+ *     summary: Détails d'un SSO client par son slug
+ *     description: |
+ *       Si aucun ssoclient n'a ce `slug`, le serveur cherche en fallback dans le
+ *       champ `variantes` (JSON `[{clientId, clientName}, …]`) et renvoie le
+ *       parent dont une variante a `clientId === slug`. Dans ce cas, `subtitle`
+ *       est remplacé par le `clientName` de la variante.
+ *     parameters:
+ *       - { in: path, name: slug, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: Données du SSO client, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/slug/:slug', handleResponse(async (req, res) => {
   const ssoclient = await getSsoclientBySlug(req.params.slug);
@@ -43,6 +54,23 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
   return ssoclient;
 }));
 
+/**
+ * @openapi
+ * /ssoclients/{id}:
+ *   get:
+ *     tags: [SSO Clients]
+ *     summary: Détails d'un SSO client par id ou client_id
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Identifiant numérique ou client_id
+ *     responses:
+ *       200: { description: Données du SSO client, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:ssoclientId', handleResponse(async (req, res) => {
   const ssoclient = await getSsoclient(req.params.ssoclientId);
   if (!ssoclient) {

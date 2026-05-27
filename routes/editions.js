@@ -6,16 +6,31 @@ const router = express.Router();
 export const routePath = '/editions';
 
 /**
- * @api {get} /editions Liste des éditions
- * @apiName ListEditions
- * @apiGroup Editions
- * @apiQuery {String} [support] Filtre sur le support (id numérique ou slug)
- * @apiQuery {String} [sort=publication] Colonne de tri (publication, modification, numero, id)
- * @apiQuery {String} [order=desc] Sens du tri (asc|desc)
- * @apiQuery {Number} [page] Page (pagination)
- * @apiQuery {Number} [limit=50] Nombre d'éléments par page
- * @apiUse globalToken
- * @apiSuccess {Object[]} data Liste paginée des éditions
+ * @openapi
+ * /editions:
+ *   get:
+ *     tags: [Editions]
+ *     summary: Liste des éditions
+ *     parameters:
+ *       - { in: query, name: support, schema: { type: string }, description: Filtre sur le support (id numérique ou slug) }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [publication, modification, numero, id], default: publication }
+ *       - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+ *       - { in: query, name: page,  schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des éditions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/', handleResponse(async (req, res) => {
   const { support, sort, order } = req.query;
@@ -33,13 +48,17 @@ router.get('/', handleResponse(async (req, res) => {
 }));
 
 /**
- * @api {get} /editions/:id Détails d'une édition
- * @apiName GetEdition
- * @apiGroup Editions
- * @apiParam {Number} id Identifiant de l'édition
- * @apiUse globalToken
- * @apiSuccess {Object} edition Données de l'édition
- * @apiError 404 Edition introuvable
+ * @openapi
+ * /editions/{id}:
+ *   get:
+ *     tags: [Editions]
+ *     summary: Détails d'une édition
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: Données de l'édition, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', handleResponse(async (req, res) => {
   const edition = await getEdition(parseInt(req.params.id, 10));

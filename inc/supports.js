@@ -48,10 +48,8 @@ async function formatSupport(row) {
 }
 
 /**
- * @api {function} getSupports Retourne la liste des supports actifs
- * @apiName GetSupportsFunc
- * @apiGroup Supports
- * @apiSuccess {Object[]} supports Liste des supports
+ * Liste des supports actifs (non corbeille, non indisponibles).
+ * @returns {Promise<Object[]>}
  */
 export async function getSupports() {
   const rows = await db('supports')
@@ -64,11 +62,9 @@ export async function getSupports() {
 }
 
 /**
- * @api {function} getSupport Retourne un support par son id ou son slug
- * @apiName GetSupportFunc
- * @apiGroup Supports
- * @apiParam {Number|String} idOrSlug Identifiant numérique ou slug
- * @apiSuccess {Object} support Données du support
+ * Récupère un support par son id numérique ou son slug.
+ * @param {number|string} idOrSlug
+ * @returns {Promise<Object|null>}
  */
 export async function getSupport(idOrSlug) {
   const query = db('supports')

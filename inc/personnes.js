@@ -1,6 +1,3 @@
-/**
- * @namespace Personnes
- */
 import { db } from '../db.js';
 import { saveToHistorique } from './historique.js';
 import { getOption } from './options.js';
@@ -18,11 +15,8 @@ export async function getPermanents() {
   return (await query).map(formaterPersonne);
 }
 /**
- * @api {function} getPersonnes Retourne la liste des personnes actives
- * @apiName GetPersonnesFunc
- * @apiGroup Personnes
- *
- * @apiSuccess {Object[]} personnes Liste des personnes formatées
+ * Liste des personnes non corbeille, triées nom/prénom.
+ * @returns {Promise<Object[]>}
  */
 export async function getPersonnes() {
 
@@ -35,15 +29,9 @@ export async function getPersonnes() {
 }
 
 /**
- * @api {function} getPersonne Récupère une personne selon des critères optionnels
- * @apiName GetPersonneFunc
- * @apiGroup Personnes
- *
- * @apiParam {Object} [options]
- * @apiParam {Number} [options.user_id] Identifiant lié à l'utilisateur
- * @apiParam {Number} [options.id] Identifiant de la personne
- *
- * @apiSuccess {Object|undefined} personne Personne ou undefined
+ * Récupère une personne par id (ou user_id).
+ * @param {{id?: number, personne_id?: number, user_id?: number}} [options]
+ * @returns {Promise<Object|undefined>}
  */
 export async function getPersonne(options = {}) {
   const user_id = options.user_id || null;
@@ -75,14 +63,10 @@ function formaterPersonne(personne) {
   return personne;
 }
 /**
- * @api {function} updatePersonne Met à jour une personne dans la base
- * @apiName UpdatePersonneFunc
- * @apiGroup Personnes
- *
- * @apiParam {Number} id Identifiant de la personne
- * @apiParam {Object} data Données à mettre à jour
- *
- * @apiSuccess {Number} updated Nombre de lignes modifiées
+ * Met à jour une personne (champs whitelistés, sauvegarde l'état dans l'historique).
+ * @param {number} id
+ * @param {Object} data
+ * @returns {Promise<number>} nombre de lignes modifiées
  */
 export async function updatePersonne(id, data) {
   if (!data) return;
