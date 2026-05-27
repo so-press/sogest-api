@@ -12,7 +12,7 @@ export const routePath = '/equipes';
  *     tags: [Equipes]
  *     summary: Liste des équipes (visibles, hors corbeille par défaut)
  *     parameters:
- *       - { in: query, name: all, schema: { type: boolean, default: false }, description: Si vrai, inclut aussi les équipes non visibles }
+ *       - { in: query, name: all, schema: { type: boolean, default: false }, description: "Si vrai, inclut aussi les équipes non visibles" }
  *     responses:
  *       200:
  *         description: Liste paginée des équipes
@@ -91,7 +91,8 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: string, description: Identifiant numérique ou slug }
+ *         description: Identifiant numérique ou slug
+ *         schema: { type: string }
  *     responses:
  *       200: { description: Données de l'équipe, content: { application/json: { schema: { type: object } } } }
  *       401: { $ref: '#/components/responses/Unauthorized' }

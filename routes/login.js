@@ -139,8 +139,8 @@ router.post('/', handleResponse(async (req, res) => {
  *                 userId:  { type: integer }
  *                 user:    { type: object }
  *       400: { description: id_token manquant }
- *       401: { description: id_token invalide (signature, iss, aud ou exp) }
- *       403: { description: Aucun utilisateur sogest ne correspond à l'email du token }
+ *       401: { description: "id_token invalide (signature, iss, aud ou exp)" }
+ *       403: { description: "Aucun utilisateur sogest ne correspond à l'email du token" }
  */
 router.post('/sso', handleResponse(async (req, res) => {
     const { id_token } = req.body;

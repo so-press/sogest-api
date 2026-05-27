@@ -20,8 +20,11 @@ const spec = swaggerJsdoc({
             version: '1.0.0',
             description: 'API REST sogest (Express). Authentification par token (JWT utilisateur ou token applicatif statique).',
         },
+        // URL relative : Scalar (et tout viewer OpenAPI standard) résout cette URL
+        // contre l'origin de la page qui sert la doc. Du coup `/doc` sur prod tape
+        // vers prod, `/doc` en local tape vers local — sans regen au déploiement.
         servers: [
-            { url: process.env.BASE_URL || 'http://localhost:3000', description: 'Serveur courant' },
+            { url: '/', description: 'Serveur courant (origin de la doc)' },
         ],
         components: {
             securitySchemes: {
