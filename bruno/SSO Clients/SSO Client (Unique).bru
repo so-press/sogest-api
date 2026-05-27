@@ -19,5 +19,19 @@ auth:bearer {
 }
 
 vars:pre-request {
-  ssoclientId: 3
+  ssoclientId: sogest-absences
+}
+
+docs {
+  Récupère un SSO client par son `id` numérique ou son `client_id`.
+
+  Fallback variantes : si la valeur n'est pas numérique et qu'aucun ssoclient
+  n'a ce `client_id`, le serveur parcourt le champ `variantes` (JSON
+  `[{clientId, clientName}, …]`) de chaque ssoclient et renvoie le parent
+  dont une variante a `clientId === <valeur>`. Dans ce cas, la réponse est
+  « projetée » comme si la variante était le client lui-même : `client_id`
+  et `subtitle` sont remplacés par les `clientId`/`clientName` de la
+  variante, et le champ `variantes` est omis de la réponse.
+
+  Renvoie 404 si aucune correspondance directe ni dans les variantes.
 }

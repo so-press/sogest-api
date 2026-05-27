@@ -1,5 +1,5 @@
 import express from 'express';
-import { getSsoclient, getSsoclients, getSsoclientBySlug } from '../inc/ssoclients.js';
+import { getSsoclient, getSsoclients } from '../inc/ssoclients.js';
 import { handleResponse } from '../inc/response.js';
 
 const router = express.Router();
@@ -29,43 +29,25 @@ router.get('/', handleResponse(async (req, res) => {
 
 /**
  * @openapi
- * /ssoclients/slug/{slug}:
- *   get:
- *     tags: [SSO Clients]
- *     summary: Détails d'un SSO client par son slug
- *     description: |
- *       Si aucun ssoclient n'a ce `slug`, le serveur cherche en fallback dans le
- *       champ `variantes` (JSON `[{clientId, clientName}, …]`) et renvoie le
- *       parent dont une variante a `clientId === slug`. Dans ce cas, `subtitle`
- *       est remplacé par le `clientName` de la variante.
- *     parameters:
- *       - { in: path, name: slug, required: true, schema: { type: string } }
- *     responses:
- *       200: { description: Données du SSO client, content: { application/json: { schema: { type: object } } } }
- *       401: { $ref: '#/components/responses/Unauthorized' }
- *       404: { $ref: '#/components/responses/NotFound' }
- */
-router.get('/slug/:slug', handleResponse(async (req, res) => {
-  const ssoclient = await getSsoclientBySlug(req.params.slug);
-  if (!ssoclient) {
-    res.status(404);
-    throw new Error('SSO client not found');
-  }
-  return ssoclient;
-}));
-
-/**
- * @openapi
  * /ssoclients/{id}:
  *   get:
  *     tags: [SSO Clients]
  *     summary: Détails d'un SSO client par id ou client_id
+ *     description: |
+ *       Fallback variantes : si la valeur n'est pas numérique et qu'aucun
+ *       ssoclient n'a ce `client_id`, le serveur cherche dans le champ
+ *       `variantes` (JSON `[{clientId, clientName}, …]`) de chaque ssoclient
+ *       et renvoie le parent dont une variante a `clientId === <valeur>`.
+ *       Dans ce cas, la réponse est « projetée » comme si la variante était
+ *       le client lui-même : `client_id` et `subtitle` sont remplacés par les
+ *       `clientId`/`clientName` de la variante, et le champ `variantes` est
+ *       omis de la réponse.
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema: { type: string }
- *         description: Identifiant numérique ou client_id
+ *         description: Identifiant numérique ou client_id (avec fallback variantes)
  *     responses:
  *       200: { description: Données du SSO client, content: { application/json: { schema: { type: object } } } }
  *       401: { $ref: '#/components/responses/Unauthorized' }

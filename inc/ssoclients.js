@@ -48,25 +48,32 @@ export async function getSsoclients() {
 
 
 /**
- * Récupère un SSO client par son `slug`. Fallback : recherche dans les
- * variantes (JSON `[{clientId, clientName}, …]`) de chaque ssoclient et
- * renvoie le parent dont une variante matche, avec `subtitle` remplacé par
- * le `clientName` de la variante.
- * @param {string} slug
+ * Récupère un SSO client par son `id` (numérique) ou son `client_id`.
+ *
+ * Fallback : si la chaîne n'est pas numérique et qu'aucun ssoclient n'a ce
+ * `client_id`, on parcourt les variantes (JSON `[{clientId, clientName}, …]`)
+ * de chaque ssoclient et on renvoie le parent dont une variante matche sur
+ * `clientId`. Dans ce cas, `subtitle` est remplacé par le `clientName` de la
+ * variante. Volume faible côté base → boucle JS acceptable.
+ *
+ * @param {number|string} idOrClientId
  * @returns {Promise<Object|null>}
  */
-export async function getSsoclientBySlug(slug) {
+export async function getSsoclient(idOrClientId) {
+  const isNumeric = /^\d+$/.test(String(idOrClientId));
+
   const direct = await db('ssoclients')
     .select(PUBLIC_FIELDS)
     .where('ssoclients.trash', '<>', 1)
-    .andWhere('ssoclients.slug', slug)
+    .andWhere(isNumeric ? 'ssoclients.id' : 'ssoclients.client_id', idOrClientId)
     .first();
 
   if (direct) return formatSsoclient(direct);
+console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrClientId);
+  // Recherche par id numérique : pas de fallback variantes (les variantes
+  // n'ont pas d'id propre).
+  if (isNumeric) return null;
 
-  // Fallback : aucun ssoclient n'a ce slug → on cherche dans les variantes
-  // (JSON [{clientId, clientName}, …]) de chaque ssoclient. Volume faible,
-  // boucle JS acceptable.
   const all = await db('ssoclients')
     .select(PUBLIC_FIELDS)
     .where('ssoclients.trash', '<>', 1);
@@ -77,27 +84,15 @@ export async function getSsoclientBySlug(slug) {
       try { variantes = JSON.parse(variantes); } catch { variantes = []; }
     }
     if (!Array.isArray(variantes)) continue;
-    const match = variantes.find(v => v && v.clientId === slug);
+    const match = variantes.find(v => v && v.clientId === idOrClientId);
     if (match) {
       const formatted = await formatSsoclient(row);
+      formatted.client_id = match.clientId;
       formatted.subtitle = match.clientName;
+      delete formatted.variantes;
       return formatted;
     }
   }
 
   return null;
-}
-
-export async function getSsoclient(idOrClientId) {
-  const query = db('ssoclients')
-    .select(PUBLIC_FIELDS)
-    .where('ssoclients.trash', '<>', 1);
-
-  if (/^\d+$/.test(String(idOrClientId))) {
-    query.andWhere('ssoclients.id', idOrClientId);
-  } else {
-    query.andWhere('ssoclients.client_id', idOrClientId);
-  }
-
-  return formatSsoclient(await query.first() ?? null);
 }
