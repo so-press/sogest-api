@@ -3,19 +3,20 @@ import { db } from '../db.js';
 import { getSupport } from './supports.js';
 
 const PUBLIC_FIELDS = [
-  'ssoclients.id', 'ssoclients.client_id', 'ssoclients.title', 'ssoclients.slug', 'ssoclients.base_url',
+  'ssoclients.id', 'ssoclients.client_id', 'ssoclients.title', 'ssoclients.subtitle', 'ssoclients.slug', 'ssoclients.base_url',
   'ssoclients.account_recovery_url',
   'ssoclients.redirect_uris', 'ssoclients.urls', 'ssoclients.actif', 'ssoclients.payload_handler',
   'ssoclients.email', 'ssoclients.color', 'ssoclients.background',
   'ssoclients.main_color', 'ssoclients.main_color_alt',
   'ssoclients.support_id', 'ssoclients.client_secret', 'ssoclients.auth_sources',
+  'ssoclients.variantes',
   // support_id est utilisé pour charger le support, puis retiré de la réponse
 ];
 
 async function formatSsoclient(row) {
   if (!row) return row;
 
-  for (const field of ['redirect_uris', 'urls', 'auth_sources']) {
+  for (const field of ['redirect_uris', 'urls', 'auth_sources', 'variantes']) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
@@ -56,13 +57,36 @@ export async function getSsoclients() {
  * @apiSuccess {Object} ssoclient Données du client SSO
  */
 export async function getSsoclientBySlug(slug) {
-  const row = await db('ssoclients')
+  const direct = await db('ssoclients')
     .select(PUBLIC_FIELDS)
     .where('ssoclients.trash', '<>', 1)
     .andWhere('ssoclients.slug', slug)
-    .first() ?? null;
+    .first();
 
-  return formatSsoclient(row);
+  if (direct) return formatSsoclient(direct);
+
+  // Fallback : aucun ssoclient n'a ce slug → on cherche dans les variantes
+  // (JSON [{clientId, clientName}, …]) de chaque ssoclient. Volume faible,
+  // boucle JS acceptable.
+  const all = await db('ssoclients')
+    .select(PUBLIC_FIELDS)
+    .where('ssoclients.trash', '<>', 1);
+
+  for (const row of all) {
+    let variantes = row.variantes;
+    if (typeof variantes === 'string') {
+      try { variantes = JSON.parse(variantes); } catch { variantes = []; }
+    }
+    if (!Array.isArray(variantes)) continue;
+    const match = variantes.find(v => v && v.clientId === slug);
+    if (match) {
+      const formatted = await formatSsoclient(row);
+      formatted.subtitle = match.clientName;
+      return formatted;
+    }
+  }
+
+  return null;
 }
 
 export async function getSsoclient(idOrClientId) {

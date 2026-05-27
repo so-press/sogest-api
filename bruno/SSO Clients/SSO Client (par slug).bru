@@ -1,0 +1,33 @@
+meta {
+  name: SSO Client (par slug)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/ssoclients/slug/{{ssoclientSlug}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  ssoclientSlug: society
+}
+
+docs {
+  Recherche un SSO client par son `slug`.
+
+  Si aucun ssoclient n'a ce slug, le serveur cherche en fallback dans le
+  champ `variantes` de chaque ssoclient (JSON `[{clientId, clientName}, …]`)
+  et renvoie le ssoclient parent dont une variante a `clientId === slug`.
+
+  Renvoie 404 si aucune correspondance directe ni dans les variantes.
+}
