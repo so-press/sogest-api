@@ -19,15 +19,15 @@ auth:bearer {
 }
 
 vars:pre-request {
-  ssoclientSlug: society
+  ssoclientSlug: sogest-absences
 }
 
 docs {
   Recherche un SSO client par son `slug`.
-
+  
   Si aucun ssoclient n'a ce slug, le serveur cherche en fallback dans le
   champ `variantes` de chaque ssoclient (JSON `[{clientId, clientName}, …]`)
   et renvoie le ssoclient parent dont une variante a `clientId === slug`.
-
+  
   Renvoie 404 si aucune correspondance directe ni dans les variantes.
 }

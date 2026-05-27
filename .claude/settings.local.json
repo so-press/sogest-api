@@ -23,7 +23,9 @@
       "Bash(echo \"started pid $!\")",
       "Read(//tmp/**)",
       "Bash(mysql *)",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "PowerShell(New-Item *)",
+      "Bash(node *)"
     ]
   }
 }
