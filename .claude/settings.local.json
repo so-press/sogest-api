@@ -25,7 +25,9 @@
       "Bash(mysql *)",
       "Bash(npm i *)",
       "PowerShell(New-Item *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(curl -s --max-time 8 https://sso.gilles.sopress.dev/jwks.json)",
+      "Bash(curl -s --max-time 8 https://sso.gilles.sopress.dev/.well-known/openid-configuration)"
     ]
   }
 }
