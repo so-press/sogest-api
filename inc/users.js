@@ -129,6 +129,40 @@ export async function getUserByEmail(email) {
 
 
 /**
+ * Crée ou met à jour une valeur liée (« link » / meta) d'un utilisateur.
+ *
+ * Upsert sur la clé unique `(champ, cle, table)` de la table `links`
+ * (`table` = 'users', `cle` = id utilisateur). Ces valeurs sont ensuite
+ * fusionnées à plat dans l'objet user par {@link getUsers}.
+ *
+ * @param {number} userId
+ * @param {string} champ
+ * @param {string} valeur
+ * @param {string} [libelle] Libellé d'affichage (défaut : `champ`)
+ * @returns {Promise<{table:string, cle:string, champ:string, valeur:string, libelle:string}>}
+ */
+export async function setUserLink(userId, champ, valeur, libelle = null) {
+    if (!userId || isNaN(userId)) throw new Error('Invalid user ID');
+    if (!champ || typeof champ !== 'string') throw new Error('champ is required');
+
+    const row = {
+        table: 'users',
+        cle: String(userId),
+        champ,
+        valeur: valeur == null ? '' : String(valeur),
+        libelle: libelle == null ? champ : String(libelle),
+    };
+
+    await db.raw(
+        'INSERT INTO `links` (`table`, `cle`, `champ`, `valeur`, `libelle`) VALUES (?, ?, ?, ?, ?) '
+        + 'ON DUPLICATE KEY UPDATE `valeur` = VALUES(`valeur`), `libelle` = VALUES(`libelle`)',
+        [row.table, row.cle, row.champ, row.valeur, row.libelle]
+    );
+
+    return row;
+}
+
+/**
  * Formate les données d'un utilisateur récupérées en base.
  *
  * @param {Object} user - Données brutes

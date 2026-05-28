@@ -1,0 +1,33 @@
+meta {
+  name: User (Maj meta)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base}}/users/me/links/telephone
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "valeur": "+33600000000",
+    "libelle": "Téléphone"
+  }
+}
+
+docs {
+  Upsert d'une meta (« link ») de l'utilisateur connecté. JWT obligatoire :
+  on ne modifie que ses propres metas. Le `champ` est dans l'URL
+  (ici `telephone`), la `valeur` (et un `libelle` optionnel) dans le body.
+  Renvoie l'utilisateur à jour avec la meta fusionnée à plat.
+}

@@ -1,7 +1,8 @@
 import express from 'express';
 import sharp from 'sharp';
-import { AVATAR_SIZES, getUser, getUsers, getUserAvatar } from '../inc/users.js';
+import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink } from '../inc/users.js';
 import { handleResponse } from '../inc/response.js';
+import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
 const router = express.Router();
 // Sous-routeur des endpoints publics (montés par server.js avant authMiddleware)
@@ -84,6 +85,48 @@ router.get('/:id', handleResponse(async (req, res) => {
 router.get('/level/:level', handleResponse(async (req, res) => {
     const rows = await getUsers({ level: req.params.level });
     return rows;
+}));
+
+/**
+ * @openapi
+ * /users/me/links/{champ}:
+ *   put:
+ *     tags: [Users]
+ *     summary: Crée ou met à jour une meta (« link ») de l'utilisateur connecté
+ *     description: |
+ *       Upsert d'une valeur liée de l'utilisateur courant (table `links`,
+ *       clé unique `champ`/`cle`/`table`). **JWT obligatoire** : l'utilisateur ne
+ *       peut modifier que ses propres metas. Renvoie l'utilisateur à jour (les
+ *       metas sont fusionnées à plat dans l'objet user).
+ *     security:
+ *       - jwtAuth: []
+ *     parameters:
+ *       - { in: path, name: champ, required: true, schema: { type: string }, description: Nom de la meta }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [valeur]
+ *             properties:
+ *               valeur:  { type: string }
+ *               libelle: { type: string, description: 'Libellé d''affichage (défaut : champ)' }
+ *     responses:
+ *       200: { description: Utilisateur mis à jour, content: { application/json: { schema: { type: object } } } }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res) => {
+    const champ = req.params.champ;
+    const { valeur, libelle } = req.body || {};
+    if (valeur === undefined) {
+        res.status(400);
+        throw new Error('valeur is required');
+    }
+
+    await setUserLink(req.user.id, champ, valeur, libelle);
+    return await getUser(req.user.id);
 }));
 
 /**
