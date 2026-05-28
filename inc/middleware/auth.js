@@ -23,6 +23,13 @@ export async function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await getUser(decoded.id);
+    // JWT valide mais utilisateur introuvable / inactif / en corbeille
+    // (getUser filtre trash<>1 et actif=1) : on refuse. Sinon req.user vaut
+    // `false`, le scoping des routes est silencieusement ignoré et peut fuiter
+    // des données (ex. GET /ndf renvoyait toutes les ndf).
+    if (!req.user) {
+      return res.status(403).json({ error: 'Unauthorized: user not found or inactive' });
+    }
     req.isJwt = true;
     next();
   } catch (err) {
