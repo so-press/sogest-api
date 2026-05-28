@@ -116,8 +116,12 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
  */
 export async function getUserByEmail(email) {
     // First try: match against primary email field
+    // Exclut les comptes en corbeille / inactifs (cohérent avec getUsers) :
+    // sans ça, un user trashé pouvait se connecter et casser le scoping des routes.
     const user = await db('users')
         .where({ email })
+        .where('trash', '<>', 1)
+        .andWhere('actif', 1)
         .first();
 
     if (user) return user;
@@ -125,6 +129,8 @@ export async function getUserByEmail(email) {
     // Second try: look for the email in 'emails_alternatifs' (newline-separated)
     return formatUser(await db('users')
         .whereRaw('FIND_IN_SET(?, REPLACE(REPLACE(emails_alternatifs, "\r", ""), "\n", ","))', [email])
+        .where('trash', '<>', 1)
+        .andWhere('actif', 1)
         .first());
 }
 
@@ -135,7 +141,7 @@ export async function getUserByEmail(email) {
  */
 export async function getUserSupportIds(userId) {
     if (!userId || isNaN(userId)) return [];
-    const row = await db('users').select('supports').where('id', userId).first();
+    const row = await db('users').select('supports').where('id', userId).where('trash', '<>', 1).first();
     if (!row || !row.supports) return [];
     return String(row.supports)
         .split(',')
@@ -176,7 +182,7 @@ export async function getUserCapabilities(userId) {
     };
     if (!userId || isNaN(userId)) return can;
 
-    const u = await db('users').select('*').where('id', userId).first();
+    const u = await db('users').select('*').where('id', userId).where('trash', '<>', 1).first();
     if (!u) return can;
 
     const links = await db('links')
@@ -216,7 +222,7 @@ export async function getUserCapabilities(userId) {
     // isLoggedPermanent : admin OU contrat de la personne ∈ CONTRATS_PERMANENTS.
     let permanent = admin;
     if (!permanent && u.personne_id) {
-        const personne = await db('personnes').select('*').where('id', u.personne_id).first();
+        const personne = await db('personnes').select('*').where('id', u.personne_id).where('trash', '<>', 1).first();
         const contrat = String(personne?.contrat ?? '').trim().toLowerCase();
         if (contrat) {
             let permTypes = [];

@@ -32,7 +32,7 @@ export async function listEditions({
  */
 export async function getEdition(id) {
   if (isNaN(id)) throw new Error('Invalid edition ID');
-  return (await db('editions').where('id', id).first()) ?? null;
+  return (await db('editions').where('id', id).where('trash', '<>', 1).first()) ?? null;
 }
 
 /**
@@ -42,6 +42,6 @@ export async function getEdition(id) {
  */
 export async function resolveSupportId(idOrSlug) {
   if (/^\d+$/.test(String(idOrSlug))) return parseInt(idOrSlug, 10);
-  const row = await db('supports').select('id').where('slug', idOrSlug).first();
+  const row = await db('supports').select('id').where('slug', idOrSlug).where('trash', '<>', 1).first();
   return row?.id ?? null;
 }

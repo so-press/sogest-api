@@ -11,6 +11,7 @@ function getSopressSupportId() {
     sopressIdPromise = db('supports')
       .select('id')
       .where('nom', SOPRESS_SUPPORT_NAME)
+      .where('trash', '<>', 1)
       .first()
       .then((row) => row?.id ?? null)
       .catch(() => null);

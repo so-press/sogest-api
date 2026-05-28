@@ -54,7 +54,8 @@ async function getTarifsDa() {
     const tarifs = await db('tarifs')
         .leftJoin('contenus', 'contenus.id', 'tarifs.contenu_id')
         .select('tarifs.*', 'contenus.*')
-        .where('contenus.type_contenu', 'da');
+        .where('contenus.type_contenu', 'da')
+        .where('tarifs.trash', '<>', 1);
 
     return tarifs;
 }

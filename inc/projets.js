@@ -63,6 +63,8 @@ export async function personneCanAccessProjet(personneId, projetId) {
   const row = await db('projets')
     .select('projets.id')
     .where('projets.id', projetId)
+    .where('projets.trash', '<>', 1)
+    .where('projets.indisponible', '<>', 1)
     .where(function () {
       this.where('projets.responsable_id', personneId)
         .orWhereExists(function () {

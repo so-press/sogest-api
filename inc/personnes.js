@@ -90,8 +90,8 @@ export async function updatePersonne(id, data) {
   }
 
   if (data.prenom !== undefined || data.nom !== undefined) {
-    const prenom = data.prenom !== undefined ? data.prenom : (await db('personnes').where({ id }).first()).prenom;
-    const nom = data.nom !== undefined ? data.nom : (await db('personnes').where({ id }).first()).nom;
+    const prenom = data.prenom !== undefined ? data.prenom : (await db('personnes').where({ id }).where('trash', '<>', 1).first()).prenom;
+    const nom = data.nom !== undefined ? data.nom : (await db('personnes').where({ id }).where('trash', '<>', 1).first()).nom;
     updateData.slug = slugify(nom, prenom);
   }
 

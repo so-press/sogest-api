@@ -60,13 +60,13 @@ async function resolveProjetData(data) {
   if (type === NDF_PROJET_TYPE.PROJET) {
     out.activite_id = null;
     if (data.projet_id) {
-      const p = await db('projets').select('libelle').where('id', data.projet_id).first();
+      const p = await db('projets').select('libelle').where('id', data.projet_id).where('trash', '<>', 1).first();
       if (p) out.projet = p.libelle;
     }
   } else if (type === NDF_PROJET_TYPE.ACTIVITE) {
     out.projet_id = null;
     if (data.activite_id) {
-      const a = await db('activites').select('libelle').where('id', data.activite_id).first();
+      const a = await db('activites').select('libelle').where('id', data.activite_id).where('trash', '<>', 1).first();
       if (a) out.projet = a.libelle;
     }
   } else if (type === NDF_PROJET_TYPE.LIBRE) {
@@ -228,7 +228,7 @@ export async function getDepenses(ndfId) {
  */
 export async function getDepense(id) {
   if (isNaN(id)) throw new Error('Invalid depense ID');
-  return formatDepense(await db('depenses').where('id', id).first() ?? null);
+  return formatDepense(await db('depenses').where('id', id).where('trash', '<>', 1).first() ?? null);
 }
 
 /**
@@ -369,7 +369,7 @@ export async function createDepense(ndf, data = {}) {
  */
 export async function updateDepense(id, data = {}) {
   if (isNaN(id)) throw new Error('Invalid depense ID');
-  const current = await db('depenses').where('id', id).first();
+  const current = await db('depenses').where('id', id).where('trash', '<>', 1).first();
   if (!current) return null;
 
   const update = {};
@@ -399,7 +399,7 @@ export async function updateDepense(id, data = {}) {
  */
 export async function deleteDepense(id) {
   if (isNaN(id)) throw new Error('Invalid depense ID');
-  const current = await db('depenses').where('id', id).first();
+  const current = await db('depenses').where('id', id).where('trash', '<>', 1).first();
   if (!current) return false;
   const ok = (await db('depenses').where('id', id).update({ trash: 1 })) > 0;
   if (current.ndf_id) await recomputeNdf(current.ndf_id);
