@@ -1,6 +1,6 @@
 import express from 'express';
 import sharp from 'sharp';
-import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink } from '../inc/users.js';
+import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField } from '../inc/users.js';
 import { handleResponse } from '../inc/response.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -32,6 +32,30 @@ export const routePath = '/users';
 router.get('/', handleResponse(async (req, res) => {
     const rows = await getUsers();
     return rows;
+}));
+
+/**
+ * @openapi
+ * /users/me:
+ *   get:
+ *     tags: [Users]
+ *     summary: Utilisateur correspondant au JWT
+ *     description: |
+ *       Renvoie l'utilisateur connecté (résolu depuis le JWT). **JWT obligatoire**
+ *       (un token statique n'identifie pas d'utilisateur).
+ *     security:
+ *       - jwtAuth: []
+ *     responses:
+ *       200: { description: Utilisateur connecté, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/me', jwtOnlyMiddleware, handleResponse(async (req, res) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found for this token');
+    }
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    return { ...req.user, personne: `${baseUrl}/personnes/${req.user.personne_id}` };
 }));
 
 /**
@@ -96,12 +120,25 @@ router.get('/level/:level', handleResponse(async (req, res) => {
  *     description: |
  *       Upsert d'une valeur liée de l'utilisateur courant (table `links`,
  *       clé unique `champ`/`cle`/`table`). **JWT obligatoire** : l'utilisateur ne
- *       peut modifier que ses propres metas. Renvoie l'utilisateur à jour (les
- *       metas sont fusionnées à plat dans l'objet user).
+ *       peut modifier que ses propres metas. Renvoie l'utilisateur à jour.
+ *
+ *       **Champs préfixés `_` (metas internes)** : un `champ` commençant par `_`
+ *       est stocké normalement mais **n'est jamais fusionné** dans l'objet user
+ *       renvoyé par les routes users (cette réponse, `GET /users`, `GET /users/:id`,
+ *       réponse de login). Il reste lisible uniquement via `GET /users/:id/links`.
+ *       Utiliser ce préfixe pour des metas qui ne doivent pas être exposées
+ *       largement.
+ *
+ *       **Contraintes** :
+ *       - le `champ` ne peut pas porter le nom d'une colonne de la table `users`
+ *         (ex. `telephone`, `email`, `level`…) — sinon `400` (il écraserait la
+ *         vraie valeur du user) ;
+ *       - `libelle` est optionnel : posé à la création (`''` par défaut), et
+ *         **laissé inchangé** lors d'un update s'il n'est pas fourni.
  *     security:
  *       - jwtAuth: []
  *     parameters:
- *       - { in: path, name: champ, required: true, schema: { type: string }, description: Nom de la meta }
+ *       - { in: path, name: champ, required: true, schema: { type: string }, description: 'Nom de la meta (préfixe `_` = interne, non exposée dans l''objet user)' }
  *     requestBody:
  *       required: true
  *       content:
@@ -111,10 +148,10 @@ router.get('/level/:level', handleResponse(async (req, res) => {
  *             required: [valeur]
  *             properties:
  *               valeur:  { type: string }
- *               libelle: { type: string, description: 'Libellé d''affichage (défaut : champ)' }
+ *               libelle: { type: string, description: 'Libellé d''affichage (optionnel ; inchangé en base si omis lors d''un update)' }
  *     responses:
  *       200: { description: Utilisateur mis à jour, content: { application/json: { schema: { type: object } } } }
- *       400: { $ref: '#/components/responses/BadRequest' }
+ *       400: { description: 'valeur manquante, ou champ réservé (= colonne de la table users)' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res) => {
@@ -124,9 +161,53 @@ router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res
         res.status(400);
         throw new Error('valeur is required');
     }
+    if (await isReservedUserField(champ)) {
+        res.status(400);
+        throw new Error(`champ "${champ}" est réservé (colonne de la table users)`);
+    }
 
     await setUserLink(req.user.id, champ, valeur, libelle);
     return await getUser(req.user.id);
+}));
+
+/**
+ * @openapi
+ * /users/{id}/links:
+ *   get:
+ *     tags: [Users]
+ *     summary: Liste des metas (« links ») d'un utilisateur
+ *     description: |
+ *       Renvoie **toutes** les valeurs liées de l'utilisateur, **y compris** les
+ *       champs internes préfixés `_`.
+ *
+ *       À noter : les champs `_` ne sont volontairement **pas** fusionnés dans
+ *       l'objet user des autres routes (`GET /users`, `GET /users/:id`, login,
+ *       réponse du PUT meta) ; cette route est le **seul** endroit qui les expose.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *       - { in: query, name: page,  schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des metas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       champ:   { type: string }
+ *                       valeur:  { type: string }
+ *                       libelle: { type: string }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/:id/links', handleResponse(async (req) => {
+    return await getUserLinks(req.params.id, { includeInternal: true });
 }));
 
 /**

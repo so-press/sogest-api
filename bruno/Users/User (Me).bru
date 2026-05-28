@@ -1,0 +1,24 @@
+meta {
+  name: User (Me)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/users/me
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Renvoie l'utilisateur correspondant au JWT envoyé. JWT obligatoire
+  (un token statique n'identifie pas d'utilisateur).
+}

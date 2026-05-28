@@ -5,7 +5,7 @@ meta {
 }
 
 put {
-  url: {{base}}/users/me/links/telephone
+  url: {{base}}/users/me/links/slack_id
   body: json
   auth: bearer
 }
@@ -20,14 +20,27 @@ auth:bearer {
 
 body:json {
   {
-    "valeur": "+33600000000",
-    "libelle": "Téléphone"
+    "valeur": "U12345678",
+    "libelle": "Identifiant Slack"
   }
 }
 
 docs {
   Upsert d'une meta (« link ») de l'utilisateur connecté. JWT obligatoire :
-  on ne modifie que ses propres metas. Le `champ` est dans l'URL
-  (ici `telephone`), la `valeur` (et un `libelle` optionnel) dans le body.
-  Renvoie l'utilisateur à jour avec la meta fusionnée à plat.
+  on ne modifie que ses propres metas. Le `champ` est dans l'URL, la `valeur`
+  dans le body ; `libelle` est optionnel (inchangé en base s'il n'est pas
+  fourni lors d'un update). Renvoie l'utilisateur à jour avec la meta fusionnée
+  à plat.
+
+  Metas internes — préfixe « _ » :
+  Un `champ` commençant par `_` (ex. `_token_slack`) est stocké normalement mais
+  n'est JAMAIS fusionné dans l'objet user renvoyé par les routes users (ni ici,
+  ni GET /users, GET /users/:id, ni la réponse de login). On ne peut le relire
+  que via GET /users/:id/links. À utiliser pour des metas à ne pas exposer
+  largement.
+
+  Champ réservé :
+  Le `champ` ne peut pas porter le nom d'une colonne de la table users
+  (ex. `telephone`, `email`, `level`…) → 400, sinon il écraserait la vraie
+  valeur du user.
 }

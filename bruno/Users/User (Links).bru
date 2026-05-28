@@ -1,0 +1,28 @@
+meta {
+  name: User (Links)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base}}/users/{{userId}}/links
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Liste TOUTES les metas (« links ») d'un utilisateur donné, y compris les
+  champs internes préfixés « _ ».
+
+  C'est le seul endroit qui expose les metas `_` : partout ailleurs (objet user
+  de GET /users, GET /users/:id, login, réponse du PUT meta) elles sont
+  volontairement masquées.
+}
