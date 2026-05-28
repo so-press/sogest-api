@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { getUserAvatar, getUserByEmail } from '../inc/users.js';
+import { getUserAvatar, getUserByEmail, getUserCapabilities } from '../inc/users.js';
 import { handleResponse } from '../inc/response.js';
 
 dotenv.config();
@@ -38,6 +38,34 @@ function getSsoAllowedClientIds() {
 const SOGEST_CLIENT_ID_RE = /^sogest-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function isSsoClientIdAllowed(clientId, allowedClientIds) {
     return allowedClientIds.includes(clientId) || SOGEST_CLIENT_ID_RE.test(clientId);
+}
+
+/**
+ * Construit la session (payload + JWT) pour un utilisateur authentifié.
+ * Source unique partagée par /login et /login/sso ; embarque les capacités
+ * (`can`) pour le gating UI côté front.
+ * @param {Object} user  ligne utilisateur (id, personne_id, email, level, nom)
+ * @returns {Promise<{success: boolean, token: string, userId: number, user: Object}>}
+ */
+async function buildUserSession(user) {
+    const avatar = await getUserAvatar(user);
+    const can = await getUserCapabilities(user.id);
+
+    const payload = {
+        id: user.id,
+        personne_id: user.personne_id,
+        avatar,
+        email: user.email,
+        level: user.level,
+        name: user.nom,
+        can,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRATION || '7d',
+    });
+
+    return { success: true, token, userId: user.id, user: payload };
 }
 
 /**
@@ -103,26 +131,7 @@ router.post('/', handleResponse(async (req, res) => {
     }
 
 
-    const avatar = await getUserAvatar(user)
-
-    const payload = {
-        id: user.id,
-        personne_id: user.personne_id,
-        avatar,
-        email: user.email,
-        level: user.level,
-        name: user.nom
-    };
-
-    const token = jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        {
-            expiresIn: process.env.JWT_EXPIRATION || '7d'
-        }
-    );
-
-    return { success: true, token, userId: user.id, user: payload };
+    return await buildUserSession(user);
 }));
 
 /**
@@ -245,26 +254,7 @@ publicRouter.post('/sso', handleResponse(async (req, res) => {
         throw new Error('No sogest user for this SSO account');
     }
 
-    const avatar = await getUserAvatar(user);
-
-    const payload = {
-        id: user.id,
-        personne_id: user.personne_id,
-        avatar,
-        email: user.email,
-        level: user.level,
-        name: user.nom
-    };
-
-    const token = jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        {
-            expiresIn: process.env.JWT_EXPIRATION || '7d'
-        }
-    );
-
-    return { success: true, token, userId: user.id, user: payload };
+    return await buildUserSession(user);
 }));
 
 export { publicRouter };

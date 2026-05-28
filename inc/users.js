@@ -144,6 +144,115 @@ export async function getUserSupportIds(userId) {
 }
 
 
+// Ids autorisés à voir les activités SoPress (cf. User::peutVoirActivitesSopress).
+const SOPRESS_ACTIVITES_USER_IDS = [3867, 1838, 8, 9, 3662, 26, 1, 53];
+
+const truthy = (v) => v !== undefined && v !== null && v !== '' && v !== '0' && v !== 0;
+
+/**
+ * Capacités d'un utilisateur, portées de sogest (class.user.inc.php). Destiné à
+ * être embarqué dans le JWT (`payload.can`) pour le gating UI côté front — la
+ * vérification d'autorisation reste faite côté serveur sur chaque route.
+ *
+ * Primitives : `ultraAdmin` = level 'admin' + colonne `ultra_admin` ;
+ * `link(x)` = droit présent dans la table `links` ; `appli(x)` = app dans la
+ * liste `applis` (surcharge possible par un link 'applis').
+ *
+ * Méthodes non portées : celles liées à la session (`isRealUser`,
+ * `adminIsConnectedAs`, `peutSeConnecterEnTantQue` côté connect-as), par
+ * ressource (`hasAccessToPdf`), `okCb` (donnée cb retirée du produit) et
+ * `isLoggedPermanent` (nécessite la lecture des contrats).
+ *
+ * @param {number} userId
+ * @returns {Promise<Object>} objet `can`
+ */
+export async function getUserCapabilities(userId) {
+    const can = {
+        ultraAdmin: false, admin: false, vip: false, redacteur: false, personne: false,
+        kiosque: false, voirActivitesSopress: false, permanent: false, accesPdf: false,
+        traiterNdf: false, saisirNdfPourTiers: false, saisirAvances: false,
+        saisirAvancePourTiers: false, traiterProd: false, traiterDocuments: false,
+        adminOffice: false, seConnecterEnTantQue: false,
+    };
+    if (!userId || isNaN(userId)) return can;
+
+    const u = await db('users').select('*').where('id', userId).first();
+    if (!u) return can;
+
+    const links = await db('links')
+        .select('champ', 'valeur')
+        .where({ table: 'users', cle: String(userId) });
+    const linkMap = Object.fromEntries(links.map((l) => [l.champ, l.valeur]));
+    const link = (champ) => truthy(linkMap[champ]);
+
+    // applis : surcharge link('applis') sinon colonne users.applis.
+    const appliRaw = truthy(linkMap.applis) ? linkMap.applis : (u.applis ?? '');
+    const applis = String(appliRaw) === '0'
+        ? []
+        : String(appliRaw).split(',').map((s) => s.trim()).filter(Boolean);
+    const appli = (name) => applis.includes(name);
+
+    const ultraAdmin = u.level === 'admin' && truthy(u.ultra_admin);
+    const admin = ultraAdmin || u.level === 'admin';
+    const voirActivitesSopress = SOPRESS_ACTIVITES_USER_IDS.includes(Number(u.id));
+    const traiterNdf = ultraAdmin || (appli('ndf') && link('ndf_trt'));
+
+    can.ultraAdmin = ultraAdmin;
+    can.admin = admin;
+    can.vip = u.level === 'vip' || admin;
+    can.redacteur = admin || u.level === 'user';
+    can.personne = u.level === 'personne';
+    can.kiosque = admin || truthy(u.kiosque);
+    can.voirActivitesSopress = voirActivitesSopress;
+    can.traiterNdf = traiterNdf;
+    can.saisirNdfPourTiers = ultraAdmin || traiterNdf || link('ndf_tiers');
+    can.saisirAvances = ultraAdmin || traiterNdf || link('demander_avances');
+    can.saisirAvancePourTiers = ultraAdmin;
+    can.traiterProd = ultraAdmin || admin || (appli('salaires') && link('peut_saisir_contrats'));
+    can.traiterDocuments = (ultraAdmin && voirActivitesSopress) || link('doc_trt');
+    can.adminOffice = ultraAdmin || link('admin_office');
+    can.seConnecterEnTantQue = ultraAdmin || link('connect_as');
+
+    // isLoggedPermanent : admin OU contrat de la personne ∈ CONTRATS_PERMANENTS.
+    let permanent = admin;
+    if (!permanent && u.personne_id) {
+        const personne = await db('personnes').select('*').where('id', u.personne_id).first();
+        const contrat = String(personne?.contrat ?? '').trim().toLowerCase();
+        if (contrat) {
+            let permTypes = [];
+            try {
+                const opt = await db('options')
+                    .select('valeur')
+                    .where('cle', 'CONTRATS_PERMANENTS')
+                    .first();
+                permTypes = String(opt?.valeur ?? '')
+                    .split(/\r?\n/)
+                    .map((s) => s.trim().toLowerCase())
+                    .filter(Boolean);
+            } catch {
+                /* option absente */
+            }
+            permanent = permTypes.includes(contrat);
+        }
+    }
+    can.permanent = permanent;
+
+    // hasAccessToPdf, part niveau utilisateur : permanent OU kiosque OU équipe
+    // « peut visualiser les pdfs » (4029). L'exception par activité (pige sur
+    // l'activité demandée) reste vérifiée côté serveur, non exprimable ici.
+    const PDF_TEAM_ID = 4029;
+    let accesPdf = permanent || can.kiosque;
+    if (!accesPdf) {
+        const lien = await db('lien_equipe_user')
+            .where({ user_id: userId, equipe_id: PDF_TEAM_ID })
+            .first();
+        accesPdf = !!lien;
+    }
+    can.accesPdf = accesPdf;
+
+    return can;
+}
+
 // Colonnes de la table `users`, en cache. Sert à interdire qu'un link porte le
 // nom d'une vraie colonne (sinon il écraserait ce champ une fois fusionné).
 let usersColumnsCache = null;
