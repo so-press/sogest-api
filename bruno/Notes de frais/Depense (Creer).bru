@@ -1,0 +1,45 @@
+meta {
+  name: Depense (Creer)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base}}/ndf/{{ndfId}}/depenses
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "type_depense": "restauration",
+    "date_depense": "2026-05-12",
+    "libelle": "Déjeuner équipe",
+    "etablissement": "Le Bistrot",
+    "ht": 45.45,
+    "tva": 4.55,
+    "ttc": 50.00,
+    "devise": "EUR"
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.id) {
+    bru.setVar("depenseId", res.body.id);
+  }
+}
+
+docs {
+  Ajoute une dépense (uniquement si la ndf est en brouillon/a-corriger).
+  Les totaux de la ndf sont recalculés automatiquement. Pour les types
+  « carburant » et « location_voiture », ajouter `immatriculation` et
+  `type_vehicule`. L'id renvoyé est stocké dans la variable `depenseId`.
+}

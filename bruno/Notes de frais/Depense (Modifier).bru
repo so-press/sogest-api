@@ -1,0 +1,28 @@
+meta {
+  name: Depense (Modifier)
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base}}/ndf/{{ndfId}}/depenses/{{depenseId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "libelle": "Déjeuner équipe (corrigé)",
+    "ht": 50.00,
+    "tva": 5.00,
+    "ttc": 55.00
+  }
+}

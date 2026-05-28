@@ -1,0 +1,27 @@
+meta {
+  name: NDF (Modifier)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{base}}/ndf/{{ndfId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "periode": "2026-06",
+    "projet": "Reportage terrain (juin)",
+    "remarque": "Mise à jour de la période"
+  }
+}

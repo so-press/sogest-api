@@ -1,0 +1,23 @@
+meta {
+  name: Depense (Supprimer)
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{base}}/ndf/{{ndfId}}/depenses/{{depenseId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Suppression logique (corbeille) d'une dépense, puis recalcul des totaux de la ndf.
+}

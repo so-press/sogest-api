@@ -1,0 +1,29 @@
+meta {
+  name: Login SSO
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base}}/login/sso
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "id_token": "{{ssoIdToken}}",
+    "client_id": "sogest-public"
+  }
+}
+
+docs {
+  Endpoint public (aucune authentification) : échange un id_token OpenID Connect
+  (signé par le SSO) contre un JWT sogest.
+
+  - Collez un id_token valide dans la variable `ssoIdToken` (ou en dur ici).
+  - `client_id` est optionnel : s'il est fourni il doit figurer dans l'allowlist
+    serveur (SSO_AUDIENCE) ou respecter le motif `sogest-<slug>`, et l'`aud` de
+    l'id_token doit le contenir. Absent, l'audience par défaut (SSO_AUDIENCE[0])
+    est utilisée.
+}

@@ -1,0 +1,377 @@
+import dayjs from 'dayjs';
+import { db } from '../db.js';
+import { getSupport } from './supports.js';
+import { getPersonne } from './personnes.js';
+
+export const NDF_PROJET_TYPE = { PROJET: 1, ACTIVITE: 2, LIBRE: 3 };
+export const NDF_ETATS = ['brouillon', 'a-traiter', 'a-corriger', 'validee', 'payee', 'archivee', 'vide'];
+
+// États dans lesquels la saisie (dépenses + champs) reste modifiable.
+// Aligné sur ndfIs($ndf, 'brouillon') de Sogest : brouillon OU a-corriger.
+const ETATS_EDITABLES = new Set(['brouillon', 'a-corriger']);
+
+const SORTABLE_NDF = new Set(['modification', 'creation', 'periode', 'ttc', 'id']);
+const EDITABLE_NDF = ['support_id', 'cb', 'nom_cb', 'periode', 'projet', 'projet_id', 'projet_type', 'activite_id', 'devise', 'remarque'];
+const EDITABLE_DEPENSE = ['type_depense', 'support_id', 'projet', 'date_depense', 'libelle', 'etablissement', 'devise', 'ordre', 'justificatif'];
+
+const money = (v) => (Math.round((parseFloat(v) || 0) * 100) / 100).toFixed(2);
+
+function formatNdf(row) {
+  if (!row) return null;
+  if (typeof row.timeline === 'string') {
+    try { row.timeline = JSON.parse(row.timeline || '[]'); } catch { row.timeline = []; }
+  } else if (row.timeline == null) {
+    row.timeline = [];
+  }
+  row.avances = row.avances ? String(row.avances).split(',').filter(Boolean).map(Number) : [];
+  return row;
+}
+
+function formatDepense(row) {
+  if (!row) return null;
+  let meta = {};
+  if (row.meta) { try { meta = JSON.parse(row.meta); } catch { meta = {}; } }
+  row.immatriculation = meta.immatriculation ?? null;
+  row.type_vehicule = meta.type_vehicule ?? null;
+  row.meta = meta;
+  if (typeof row.pages === 'string') {
+    try { row.pages = row.pages ? JSON.parse(row.pages) : []; } catch { row.pages = []; }
+  }
+  return row;
+}
+
+function buildMeta(existing, data) {
+  const meta = { ...existing };
+  if (data.immatriculation !== undefined) meta.immatriculation = data.immatriculation;
+  if (data.type_vehicule !== undefined) meta.type_vehicule = data.type_vehicule;
+  return meta;
+}
+
+/**
+ * Résout le libellé `projet` à partir de `projet_id`/`activite_id` selon le
+ * `projet_type`, et neutralise l'identifiant non pertinent (cf. trt/ndf.php).
+ * @param {Object} data
+ * @returns {Promise<Object>} sous-ensemble de champs ndf à appliquer
+ */
+async function resolveProjetData(data) {
+  const out = {};
+  const type = data.projet_type != null ? Number(data.projet_type) : null;
+
+  if (type === NDF_PROJET_TYPE.PROJET) {
+    out.activite_id = null;
+    if (data.projet_id) {
+      const p = await db('projets').select('libelle').where('id', data.projet_id).first();
+      if (p) out.projet = p.libelle;
+    }
+  } else if (type === NDF_PROJET_TYPE.ACTIVITE) {
+    out.projet_id = null;
+    if (data.activite_id) {
+      const a = await db('activites').select('libelle').where('id', data.activite_id).first();
+      if (a) out.projet = a.libelle;
+    }
+  } else if (type === NDF_PROJET_TYPE.LIBRE) {
+    out.projet_id = null;
+    out.activite_id = null;
+  }
+  return out;
+}
+
+/**
+ * Vrai si la saisie de la ndf est encore modifiable (brouillon / a-corriger).
+ * @param {Object} ndf
+ * @returns {boolean}
+ */
+export function ndfEstEditable(ndf) {
+  return ETATS_EDITABLES.has(ndf?.etat);
+}
+
+/**
+ * Vrai si la ndf est rattachée à l'utilisateur (par user_id ou par personne_id).
+ * @param {Object} ndf
+ * @param {{id: number, personne_id?: number}} user
+ * @returns {boolean}
+ */
+export function ndfAppartientA(ndf, user) {
+  if (!ndf || !user) return false;
+  if (ndf.user_id && ndf.user_id === user.id) return true;
+  if (ndf.personne_id && user.personne_id && ndf.personne_id === user.personne_id) return true;
+  return false;
+}
+
+/**
+ * Liste filtrée et triée des notes de frais.
+ * @param {{userId?: number, personneId?: number, etat?: string, cb?: boolean, sort?: string, order?: 'asc'|'desc'}} [options]
+ * @returns {Promise<Object[]>}
+ */
+export async function listNdf({
+  userId = null,
+  personneId = null,
+  etat = null,
+  cb = null,
+  sort = 'modification',
+  order = 'desc',
+} = {}) {
+  const query = db('ndf').select('*').where('trash', '<>', 1);
+
+  // Périmètre : ndf de l'utilisateur connecté (par user_id OU sa personne_id).
+  if (userId !== null || personneId !== null) {
+    query.where(function () {
+      if (userId !== null) this.orWhere('user_id', userId);
+      if (personneId !== null) this.orWhere('personne_id', personneId);
+    });
+  }
+
+  if (etat) query.where('etat', etat);
+  if (cb !== null) query.where('cb', cb ? 1 : 0);
+
+  const column = SORTABLE_NDF.has(String(sort)) ? sort : 'modification';
+  const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+  return (await query.orderBy(column, direction)).map(formatNdf);
+}
+
+/**
+ * Récupère une note de frais par son id (hors corbeille).
+ * @param {number} id
+ * @param {{withDepenses?: boolean}} [options]
+ * @returns {Promise<Object|null>}
+ */
+export async function getNdf(id, { withDepenses = false } = {}) {
+  if (isNaN(id)) throw new Error('Invalid ndf ID');
+  const ndf = formatNdf(await db('ndf').where('id', id).where('trash', '<>', 1).first() ?? null);
+  if (ndf && withDepenses) ndf.depenses = await getDepenses(id);
+  return ndf;
+}
+
+/**
+ * Liste des dépenses d'une note de frais (hors corbeille).
+ * @param {number} ndfId
+ * @returns {Promise<Object[]>}
+ */
+export async function getDepenses(ndfId) {
+  if (isNaN(ndfId)) throw new Error('Invalid ndf ID');
+  const rows = await db('depenses')
+    .where('ndf_id', ndfId)
+    .where('trash', '<>', 1)
+    .orderBy([
+      { column: 'type_depense', order: 'desc' },
+      { column: 'ordre', order: 'asc' },
+      { column: 'id', order: 'asc' },
+    ]);
+  return rows.map(formatDepense);
+}
+
+/**
+ * Récupère une dépense par son id.
+ * @param {number} id
+ * @returns {Promise<Object|null>}
+ */
+export async function getDepense(id) {
+  if (isNaN(id)) throw new Error('Invalid depense ID');
+  return formatDepense(await db('depenses').where('id', id).first() ?? null);
+}
+
+/**
+ * Crée une note de frais (état brouillon) rattachée à l'utilisateur.
+ * @param {{user: Object, data?: Object}} params
+ * @returns {Promise<Object>}
+ */
+export async function createNdf({ user, data = {} }) {
+  const personneId = user.personne_id || 0;
+  const personne = personneId ? await getPersonne({ personne_id: personneId }) : null;
+  const support = data.support_id ? await getSupport(data.support_id) : null;
+
+  const insert = {
+    user_id: user.id,
+    personne_id: personneId,
+    personne: personne ? `${personne.prenom ?? ''} ${personne.nom ?? ''}`.trim() : '',
+    support_id: data.support_id || 0,
+    support: support ? support.nom : '',
+    cb: data.cb ? 1 : 0,
+    nom_cb: data.nom_cb || '',
+    periode: data.periode || dayjs().format('YYYY-MM'),
+    devise: data.devise || 'EUR',
+    remarque: data.remarque || '',
+    projet: data.projet || '',
+    projet_id: data.projet_id || null,
+    projet_type: data.projet_type != null ? Number(data.projet_type) : null,
+    activite_id: data.activite_id || null,
+    etat: 'brouillon',
+    timeline: JSON.stringify([]),
+  };
+  Object.assign(insert, await resolveProjetData(data));
+
+  const [id] = await db('ndf').insert(insert);
+  return await getNdf(id);
+}
+
+/**
+ * Met à jour une note de frais (champs whitelistés). Un changement d'`etat`
+ * empile un événement dans la timeline.
+ * @param {number} id
+ * @param {Object} data
+ * @param {Object} [user]
+ * @returns {Promise<Object|null>}
+ */
+export async function updateNdf(id, data, user) {
+  if (isNaN(id)) throw new Error('Invalid ndf ID');
+  const current = await getNdf(id);
+  if (!current) return null;
+
+  const update = {};
+  for (const f of EDITABLE_NDF) {
+    if (data[f] !== undefined) update[f] = data[f];
+  }
+  if (data.cb !== undefined) update.cb = data.cb ? 1 : 0;
+
+  if (data.support_id !== undefined) {
+    const support = data.support_id ? await getSupport(data.support_id) : null;
+    update.support = support ? support.nom : '';
+  }
+
+  if (data.projet_type !== undefined || data.projet_id !== undefined || data.activite_id !== undefined) {
+    Object.assign(update, await resolveProjetData({ ...current, ...data }));
+  }
+
+  if (data.etat !== undefined && data.etat !== current.etat) {
+    if (!NDF_ETATS.includes(data.etat)) throw new Error('Invalid etat');
+    const timeline = Array.isArray(current.timeline) ? current.timeline : [];
+    timeline.push({
+      etat: data.etat,
+      precedent: current.etat,
+      datetime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      message: data.etat === 'a-corriger' ? (data.remarque ?? current.remarque ?? '') : '',
+      user: user?.id ?? null,
+      username: user?.nomComplet ?? null,
+    });
+    update.etat = data.etat;
+    update.timeline = JSON.stringify(timeline);
+  }
+
+  if (Object.keys(update).length === 0) return current;
+  await db('ndf').where('id', id).update(update);
+  return await getNdf(id);
+}
+
+/**
+ * Suppression logique d'une note de frais (et de ses dépenses).
+ * @param {number} id
+ * @returns {Promise<boolean>}
+ */
+export async function deleteNdf(id) {
+  if (isNaN(id)) throw new Error('Invalid ndf ID');
+  await db('depenses').where('ndf_id', id).update({ trash: 1 });
+  return (await db('ndf').where('id', id).update({ trash: 1 })) > 0;
+}
+
+/**
+ * Ajoute une dépense à une note de frais et recalcule les totaux.
+ * La conversion de devise n'est pas gérée par l'API : les montants `*_final`
+ * reprennent les montants saisis et `taux_devise` vaut 1.
+ * @param {Object} ndf
+ * @param {Object} [data]
+ * @returns {Promise<Object>}
+ */
+export async function createDepense(ndf, data = {}) {
+  const ht = money(data.ht);
+  const tva = money(data.tva);
+  const ttc = money(data.ttc);
+
+  const insert = {
+    ndf_id: ndf.id,
+    support_id: data.support_id || ndf.support_id || 0,
+    support: '',
+    projet: data.projet ?? ndf.projet ?? '',
+    type_depense: data.type_depense || '',
+    date_depense: data.date_depense || (ndf.periode ? `${ndf.periode}-01` : ''),
+    libelle: data.libelle || '',
+    etablissement: data.etablissement || '',
+    justificatif: data.justificatif || '',
+    devise: data.devise || ndf.devise || 'EUR',
+    taux_devise: '1',
+    ht, tva, ttc,
+    ht_final: ht, tva_final: tva, ttc_final: ttc,
+    pages: '',
+    meta: JSON.stringify(buildMeta({}, data)),
+    ordre: data.ordre != null ? Number(data.ordre) : 9999,
+  };
+
+  const [id] = await db('depenses').insert(insert);
+  await recomputeNdf(ndf.id);
+  return await getDepense(id);
+}
+
+/**
+ * Met à jour une dépense (champs whitelistés) puis recalcule la ndf parente.
+ * @param {number} id
+ * @param {Object} [data]
+ * @returns {Promise<Object|null>}
+ */
+export async function updateDepense(id, data = {}) {
+  if (isNaN(id)) throw new Error('Invalid depense ID');
+  const current = await db('depenses').where('id', id).first();
+  if (!current) return null;
+
+  const update = {};
+  for (const f of EDITABLE_DEPENSE) {
+    if (data[f] !== undefined) update[f] = data[f];
+  }
+  if (data.ht !== undefined) { update.ht = money(data.ht); update.ht_final = update.ht; }
+  if (data.tva !== undefined) { update.tva = money(data.tva); update.tva_final = update.tva; }
+  if (data.ttc !== undefined) { update.ttc = money(data.ttc); update.ttc_final = update.ttc; }
+
+  if (data.immatriculation !== undefined || data.type_vehicule !== undefined) {
+    let meta = {};
+    if (current.meta) { try { meta = JSON.parse(current.meta); } catch { meta = {}; } }
+    update.meta = JSON.stringify(buildMeta(meta, data));
+  }
+
+  if (Object.keys(update).length === 0) return formatDepense(current);
+  await db('depenses').where('id', id).update(update);
+  if (current.ndf_id) await recomputeNdf(current.ndf_id);
+  return await getDepense(id);
+}
+
+/**
+ * Suppression logique d'une dépense puis recalcul de la ndf parente.
+ * @param {number} id
+ * @returns {Promise<boolean>}
+ */
+export async function deleteDepense(id) {
+  if (isNaN(id)) throw new Error('Invalid depense ID');
+  const current = await db('depenses').where('id', id).first();
+  if (!current) return false;
+  const ok = (await db('depenses').where('id', id).update({ trash: 1 })) > 0;
+  if (current.ndf_id) await recomputeNdf(current.ndf_id);
+  return ok;
+}
+
+/**
+ * Recalcule les champs dénormalisés d'une note de frais à partir de ses
+ * dépenses : totaux HT/TVA/TTC, nombre de lignes et CSV des devises.
+ * @param {number} ndfId
+ * @returns {Promise<void>}
+ */
+export async function recomputeNdf(ndfId) {
+  const rows = await db('depenses')
+    .where('ndf_id', ndfId)
+    .where('trash', '<>', 1)
+    .select('ht_final', 'tva_final', 'ttc_final', 'devise');
+
+  const totals = { ht: 0, tva: 0, ttc: 0 };
+  const devises = new Set();
+  for (const r of rows) {
+    totals.ht += parseFloat(r.ht_final) || 0;
+    totals.tva += parseFloat(r.tva_final) || 0;
+    totals.ttc += parseFloat(r.ttc_final) || 0;
+    if (r.devise) devises.add(r.devise);
+  }
+
+  await db('ndf').where('id', ndfId).update({
+    ht: totals.ht.toFixed(2),
+    tva: totals.tva.toFixed(2),
+    ttc: totals.ttc.toFixed(2),
+    lignes: rows.length,
+    devises: [...devises].sort().join(','),
+  });
+}

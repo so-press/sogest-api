@@ -1,0 +1,17 @@
+meta {
+  name: Login config
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base}}/login/config
+  body: none
+  auth: none
+}
+
+docs {
+  Endpoint public (aucune authentification). Renvoie la config OIDC publique
+  pour le front : { authority, scope }. Le client_id n'est pas renvoyé (il est
+  détenu par le front).
+}

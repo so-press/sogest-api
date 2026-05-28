@@ -23,6 +23,7 @@ import * as ssoclients from './routes/ssoclients.js';
 import * as supports from './routes/supports.js';
 import * as equipes from './routes/equipes.js';
 import * as editions from './routes/editions.js';
+import * as ndf from './routes/ndf.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -42,7 +43,8 @@ const routes = {
   ssoclients,
   supports,
   equipes,
-  editions
+  editions,
+  ndf
 };
 
 // Load environment variables

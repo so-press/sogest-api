@@ -1,0 +1,32 @@
+meta {
+  name: NDF (Changer etat)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base}}/ndf/{{ndfId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "etat": "a-traiter"
+  }
+}
+
+docs {
+  Soumet la note de frais au traitement. Un changement d'`etat` empile un
+  événement dans la timeline. États : brouillon, a-traiter, a-corriger,
+  validee, payee, archivee. Une fois hors brouillon/a-corriger, les dépenses
+  ne sont plus modifiables (réponse 409).
+}

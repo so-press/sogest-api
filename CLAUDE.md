@@ -21,6 +21,8 @@ Copy `.env` from a template (not committed). Required variables:
 - `ALLOWED_DOMAINS` — comma-separated list of allowed CORS origins. Each entry is a host (no scheme): `host` matches any port, `host:port` matches that exact port, and `*.domain` matches any subdomain of `domain` (and the apex). E.g. `localhost:5173,app.example.com,*.sopress.com`
 - `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`
 - `NO_PASSWORD_NEEDED` — set to any truthy value to bypass bcrypt check (dev only)
+- `SSO_ISSUER`, `SSO_JWKS_URI` — OpenID Connect provider used by `POST /login/sso`
+- `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
 - `tokens` — named static API tokens (bypass JWT, allow all non-JWT-only routes)
@@ -47,6 +49,17 @@ All requests require an `Authorization: Bearer <token>` header (`authMiddleware`
 2. **JWT** — verified against `JWT_SECRET`. Sets `req.user` (full user object) and `req.isJwt = true`.
 
 Routes with `export const requireAuth = true` additionally run `jwtOnlyMiddleware`, which blocks static-token requests. Use this for user-specific mutations.
+
+### SSO login (`POST /login/sso`)
+
+Exchanges an OpenID Connect `id_token` (signed by `SSO_ISSUER`, verified against `SSO_JWKS_URI`) for a sogest JWT, returning the same payload as `POST /login`. Called with a static token (the user has no JWT yet).
+
+The body is `{ id_token, client_id? }`. The token's `aud` is validated against the expected audience:
+- `client_id` provided **and** allowed (in `SSO_AUDIENCE` allowlist **or** matching `sogest-<slug>`) → expected `aud` = that `client_id`.
+- `client_id` provided but not allowed → **403** (before any signature check).
+- `client_id` omitted → expected `aud` = first entry of `SSO_AUDIENCE` (backward-compatible default).
+
+Never trust the incoming `client_id` blindly: the allowlist/pattern check is what prevents an id_token issued for a different client of the same SSO from being accepted here.
 
 ### Response pattern
 

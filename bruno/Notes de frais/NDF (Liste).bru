@@ -1,0 +1,28 @@
+meta {
+  name: NDF (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/ndf
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~etat: brouillon
+  ~cb: true
+  ~sort: modification
+  ~order: desc
+  ~page: 1
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

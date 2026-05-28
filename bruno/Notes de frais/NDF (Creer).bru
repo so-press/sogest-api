@@ -1,0 +1,42 @@
+meta {
+  name: NDF (Creer)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base}}/ndf
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "support_id": 1,
+    "periode": "2026-05",
+    "devise": "EUR",
+    "cb": false,
+    "projet": "Reportage terrain",
+    "projet_type": 3,
+    "remarque": ""
+  }
+}
+
+script:post-response {
+  if (res.body && res.body.id) {
+    bru.setVar("ndfId", res.body.id);
+  }
+}
+
+docs {
+  Crée une note de frais en état « brouillon », rattachée à l'utilisateur du JWT.
+  L'id renvoyé est stocké dans la variable `ndfId` pour les requêtes suivantes.
+}

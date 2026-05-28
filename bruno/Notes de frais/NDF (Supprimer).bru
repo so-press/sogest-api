@@ -1,0 +1,23 @@
+meta {
+  name: NDF (Supprimer)
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{base}}/ndf/{{ndfId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Suppression logique (corbeille) de la note de frais et de ses dépenses.
+}
