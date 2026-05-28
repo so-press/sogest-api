@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { db } from '../db.js';
 import { getSupport } from './supports.js';
 import { getPersonne } from './personnes.js';
+import { getTauxDevise } from './devises.js';
 
 export const NDF_PROJET_TYPE = { PROJET: 1, ACTIVITE: 2, LIBRE: 3 };
 export const NDF_ETATS = ['brouillon', 'a-traiter', 'a-corriger', 'validee', 'payee', 'archivee', 'vide'];
@@ -15,6 +16,24 @@ const EDITABLE_NDF = ['support_id', 'cb', 'nom_cb', 'periode', 'projet', 'projet
 const EDITABLE_DEPENSE = ['type_depense', 'support_id', 'projet', 'date_depense', 'libelle', 'etablissement', 'devise', 'ordre', 'justificatif'];
 
 const money = (v) => (Math.round((parseFloat(v) || 0) * 100) / 100).toFixed(2);
+
+/**
+ * Taux de conversion d'une dépense vers l'EUR (devise de référence). EUR = 1.
+ * Si le taux est indisponible (source externe), on retombe sur 1 (pas de
+ * conversion) plutôt que d'échouer la sauvegarde.
+ * @param {string} devise  code de la dépense
+ * @param {string} date    date de la dépense (YYYY-MM-DD)
+ * @returns {Promise<number>} taux tel que montant_eur = montant_devise / taux
+ */
+async function tauxVersEur(devise, date) {
+  const code = String(devise || 'EUR').toUpperCase();
+  if (code === 'EUR') return 1;
+  const taux = await getTauxDevise(code, date);
+  return taux && taux > 0 ? taux : 1;
+}
+
+/** Convertit un montant saisi en EUR via le taux (montant_eur = montant / taux). */
+const toEur = (montant, taux) => money((parseFloat(montant) || 0) / (taux || 1));
 
 function formatNdf(row) {
   if (!row) return null;
@@ -326,8 +345,9 @@ export async function deleteNdf(id) {
 
 /**
  * Ajoute une dépense à une note de frais et recalcule les totaux.
- * La conversion de devise n'est pas gérée par l'API : les montants `*_final`
- * reprennent les montants saisis et `taux_devise` vaut 1.
+ * Les montants sont saisis dans la devise de la dépense ; `*_final` stocke leur
+ * conversion en EUR (devise de référence) au taux de la date, et `taux_devise`
+ * le taux appliqué. Les totaux de la ndf sont calculés sur les `*_final`.
  * @param {Object} ndf
  * @param {Object} [data]
  * @returns {Promise<Object>}
@@ -337,20 +357,26 @@ export async function createDepense(ndf, data = {}) {
   const tva = money(data.tva);
   const ttc = money(data.ttc);
 
+  const devise = data.devise || ndf.devise || 'EUR';
+  const date_depense = data.date_depense || (ndf.periode ? `${ndf.periode}-01` : '');
+  // Conversion en EUR (devise de référence) : ce sont les *_final qui servent
+  // au calcul des totaux de la ndf.
+  const taux = await tauxVersEur(devise, date_depense);
+
   const insert = {
     ndf_id: ndf.id,
     support_id: data.support_id || ndf.support_id || 0,
     support: '',
     projet: data.projet ?? ndf.projet ?? '',
     type_depense: data.type_depense || '',
-    date_depense: data.date_depense || (ndf.periode ? `${ndf.periode}-01` : ''),
+    date_depense,
     libelle: data.libelle || '',
     etablissement: data.etablissement || '',
     justificatif: data.justificatif || '',
-    devise: data.devise || ndf.devise || 'EUR',
-    taux_devise: '1',
+    devise,
+    taux_devise: String(taux),
     ht, tva, ttc,
-    ht_final: ht, tva_final: tva, ttc_final: ttc,
+    ht_final: toEur(ht, taux), tva_final: toEur(tva, taux), ttc_final: toEur(ttc, taux),
     pages: '',
     meta: JSON.stringify(buildMeta({}, data)),
     ordre: data.ordre != null ? Number(data.ordre) : 9999,
@@ -376,9 +402,24 @@ export async function updateDepense(id, data = {}) {
   for (const f of EDITABLE_DEPENSE) {
     if (data[f] !== undefined) update[f] = data[f];
   }
-  if (data.ht !== undefined) { update.ht = money(data.ht); update.ht_final = update.ht; }
-  if (data.tva !== undefined) { update.tva = money(data.tva); update.tva_final = update.tva; }
-  if (data.ttc !== undefined) { update.ttc = money(data.ttc); update.ttc_final = update.ttc; }
+  if (data.ht !== undefined) update.ht = money(data.ht);
+  if (data.tva !== undefined) update.tva = money(data.tva);
+  if (data.ttc !== undefined) update.ttc = money(data.ttc);
+
+  // Recalcule les montants convertis en EUR (*_final) + le taux dès qu'un
+  // facteur change : devise, date de la dépense, ou un des montants saisis.
+  const reconvertir = ['devise', 'date_depense', 'ht', 'tva', 'ttc'].some(
+    (f) => data[f] !== undefined,
+  );
+  if (reconvertir) {
+    const devise = update.devise ?? current.devise;
+    const date = update.date_depense ?? current.date_depense;
+    const taux = await tauxVersEur(devise, date);
+    update.taux_devise = String(taux);
+    update.ht_final = toEur(update.ht ?? current.ht, taux);
+    update.tva_final = toEur(update.tva ?? current.tva, taux);
+    update.ttc_final = toEur(update.ttc ?? current.ttc, taux);
+  }
 
   if (data.immatriculation !== undefined || data.type_vehicule !== undefined) {
     let meta = {};
