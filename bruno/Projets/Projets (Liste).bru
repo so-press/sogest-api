@@ -1,0 +1,26 @@
+meta {
+  name: Projets (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/projets
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~sort: date_debut
+  ~order: desc
+  ~page: 1
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

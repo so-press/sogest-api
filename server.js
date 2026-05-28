@@ -24,6 +24,8 @@ import * as supports from './routes/supports.js';
 import * as equipes from './routes/equipes.js';
 import * as editions from './routes/editions.js';
 import * as ndf from './routes/ndf.js';
+import * as projets from './routes/projets.js';
+import * as activites from './routes/activites.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -44,7 +46,9 @@ const routes = {
   supports,
   equipes,
   editions,
-  ndf
+  ndf,
+  projets,
+  activites
 };
 
 // Load environment variables

@@ -1,0 +1,26 @@
+meta {
+  name: Activites (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/activites
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~sort: periode
+  ~order: desc
+  ~page: 1
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

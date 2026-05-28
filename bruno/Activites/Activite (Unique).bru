@@ -1,0 +1,23 @@
+meta {
+  name: Activite (Unique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/activites/{{activiteId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  activiteId: 1
+}
