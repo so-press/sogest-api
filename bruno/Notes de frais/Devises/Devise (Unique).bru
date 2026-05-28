@@ -1,0 +1,27 @@
+meta {
+  name: Devise (Unique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/devises/{{code}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  code: USD
+}
+
+docs {
+  Détail d'une devise par code ISO (ex. USD) ou slug.
+}

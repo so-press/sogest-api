@@ -1,0 +1,33 @@
+meta {
+  name: Devise (Taux)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/devises/{{code}}/taux?date=2024-09-30
+  body: none
+  auth: bearer
+}
+
+params:query {
+  date: 2024-09-30
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  code: USD
+}
+
+docs {
+  Taux d'une devise à une date (source externe). `date` optionnel (défaut :
+  aujourd'hui). `taux` compatible Sogest : EUR=1, sinon EUR→devise tel que
+  montant_eur = montant_devise / taux. 502 si la source externe est indisponible.
+}

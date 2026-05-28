@@ -1,0 +1,24 @@
+meta {
+  name: Devises (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/devises?limit=500
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 500
+  ~page: 1
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
