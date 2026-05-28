@@ -26,6 +26,36 @@ const spec = swaggerJsdoc({
         servers: [
             { url: '/', description: 'Serveur courant (origin de la doc)' },
         ],
+        // Ordre d'affichage des tags (sections) dans le viewer.
+        tags: [
+            { name: 'Auth' },
+            { name: 'Personne' },
+            { name: 'Trombinoscope' },
+            { name: 'Upload' },
+            { name: 'SSO Clients' },
+            { name: 'Users' },
+            { name: 'Personnes' },
+            { name: 'Equipes' },
+            { name: 'Absences' },
+            { name: 'Supports' },
+            { name: 'Editions' },
+            { name: 'Projets' },
+            { name: 'Activités' },
+            { name: 'Notes de frais' },
+            { name: 'Devises' },
+            { name: 'Documents' },
+            { name: 'Historique' },
+            { name: 'Notifications' },
+        ],
+        // Regroupe les tags par thème, en miroir des dossiers parents de la
+        // collection Bruno (Scalar/Redoc lisent `x-tagGroups`).
+        'x-tagGroups': [
+            { name: 'Authentification', tags: ['Auth', 'Personne', 'Trombinoscope', 'Upload', 'SSO Clients'] },
+            { name: 'RH & Utilisateurs', tags: ['Users', 'Personnes', 'Equipes', 'Absences'] },
+            { name: 'Éditorial', tags: ['Supports', 'Editions', 'Projets', 'Activités'] },
+            { name: 'Notes de frais', tags: ['Notes de frais', 'Devises'] },
+            { name: 'Système', tags: ['Documents', 'Historique', 'Notifications'] },
+        ],
         components: {
             securitySchemes: {
                 bearerAuth: {
