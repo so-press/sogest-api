@@ -69,7 +69,16 @@ export function handleResponse(handler) {
 
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: 'Server error' , message : ''+err});
+      // Honore le statut posé par le handler (res.status(...)) ou porté par
+      // l'erreur (err.status / err.statusCode) ; 500 par défaut.
+      const status =
+        err.status ||
+        err.statusCode ||
+        (res.statusCode >= 400 ? res.statusCode : 500);
+      res.status(status).json({
+        error: status === 500 ? 'Server error' : (err.message || 'Error'),
+        message: '' + err,
+      });
     }
   };
 }

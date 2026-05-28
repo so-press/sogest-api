@@ -84,18 +84,22 @@ router.post('/', upload.single('file'), handleResponse(async (req, res) => {
   const key = folder ? `${folder}/${name}` : name;
 
   // Check if file already exists on S3
+  let exists = false;
   try {
     await s3.send(new HeadObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: key
     }));
-
-    res.status(409);
-    throw new Error('File already exists on S3');
+    exists = true;
   } catch (err) {
     if (err.name !== 'NotFound') {
       throw err; // other errors, like permission denied
     }
+  }
+
+  if (exists) {
+    res.status(409);
+    throw new Error('File already exists on S3');
   }
 
   const command = new PutObjectCommand({
