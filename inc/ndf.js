@@ -108,6 +108,7 @@ export async function listNdf({
   personneId = null,
   etat = null,
   cb = null,
+  search = null,
   sort = 'modification',
   order = 'desc',
 } = {}) {
@@ -124,10 +125,69 @@ export async function listNdf({
   if (etat) query.where('etat', etat);
   if (cb !== null) query.where('cb', cb ? 1 : 0);
 
+  // Recherche plein-texte (LIKE) sur les champs de la ndf ET de ses dépenses.
+  // Insensible casse + accents via la collation par défaut (*_ci) de la base.
+  if (search && String(search).trim()) {
+    const esc = String(search).trim().replace(/[\\%_]/g, '\\$&');
+    const term = `%${esc}%`;
+    query.where(function () {
+      this.where('projet', 'like', term)
+        .orWhere('support', 'like', term)
+        .orWhere('periode', 'like', term)
+        .orWhere('devises', 'like', term)
+        .orWhere('nom_cb', 'like', term)
+        .orWhere('remarque', 'like', term)
+        .orWhere('personne', 'like', term)
+        .orWhere('etat', 'like', term)
+        .orWhere('ttc', 'like', term)
+        // ... ou l'une de ses dépenses (hors corbeille) correspond.
+        .orWhereIn('id', function () {
+          this.select('ndf_id')
+            .from('depenses')
+            .where('trash', '<>', 1)
+            .andWhere(function () {
+              this.where('libelle', 'like', term)
+                .orWhere('etablissement', 'like', term)
+                .orWhere('type_depense', 'like', term)
+                .orWhere('devise', 'like', term)
+                .orWhere('meta', 'like', term)
+                .orWhere('ttc', 'like', term);
+            });
+        });
+    });
+  }
+
   const column = SORTABLE_NDF.has(String(sort)) ? sort : 'modification';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
   return (await query.orderBy(column, direction)).map(formatNdf);
+}
+
+/**
+ * Compte les notes de frais de l'utilisateur, groupées par état (hors corbeille).
+ * @param {{userId?: number, personneId?: number}} [options]
+ * @returns {Promise<{counts: Object<string, number>, total: number}>}
+ */
+export async function countNdfByEtat({ userId = null, personneId = null } = {}) {
+  const query = db('ndf').select('etat').count({ n: '*' }).where('trash', '<>', 1);
+
+  if (userId !== null || personneId !== null) {
+    query.where(function () {
+      if (userId !== null) this.orWhere('user_id', userId);
+      if (personneId !== null) this.orWhere('personne_id', personneId);
+    });
+  }
+
+  const rows = await query.groupBy('etat');
+
+  const counts = {};
+  let total = 0;
+  for (const r of rows) {
+    const n = Number(r.n) || 0;
+    counts[r.etat] = n;
+    total += n;
+  }
+  return { counts, total };
 }
 
 /**

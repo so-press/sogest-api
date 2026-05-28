@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   listNdf,
+  countNdfByEtat,
   getNdf,
   createNdf,
   updateNdf,
@@ -56,6 +57,7 @@ function assertEditable(ndf, res) {
  *     parameters:
  *       - { in: query, name: etat, schema: { type: string, enum: [brouillon, a-traiter, a-corriger, validee, payee, archivee, vide] } }
  *       - { in: query, name: cb, schema: { type: boolean }, description: Filtre sur les ndf rattachées à une carte bancaire }
+ *       - { in: query, name: s, schema: { type: string }, description: "Recherche plein-texte (LIKE) sur les champs de la ndf et de ses dépenses" }
  *       - in: query
  *         name: sort
  *         schema: { type: string, enum: [modification, creation, periode, ttc, id], default: modification }
@@ -75,14 +77,46 @@ function assertEditable(ndf, res) {
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req) => {
-  const { etat, cb, sort, order } = req.query;
+  const { etat, cb, s, sort, order } = req.query;
   return await listNdf({
     userId: req.user.id,
     personneId: req.user.personne_id || null,
     etat: etat || null,
     cb: cb === undefined ? null : (cb !== '0' && cb !== 'false'),
+    search: s || null,
     sort,
     order,
+  });
+}));
+
+/**
+ * @openapi
+ * /ndf/counts:
+ *   get:
+ *     tags: [Notes de frais]
+ *     summary: Nombre de notes de frais de l'utilisateur, groupées par état
+ *     description: |
+ *       Renvoie le décompte par état (hors corbeille) pour alimenter les
+ *       compteurs des onglets de filtre du front. Doit être déclarée avant
+ *       `/ndf/{id}` pour ne pas être capturée comme un identifiant.
+ *     security:
+ *       - jwtAuth: []
+ *     responses:
+ *       200:
+ *         description: Décompte par état et total
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 counts: { type: object, additionalProperties: { type: integer }, example: { brouillon: 3, 'a-traiter': 1 } }
+ *                 total:  { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/counts', handleResponse(async (req) => {
+  return await countNdfByEtat({
+    userId: req.user.id,
+    personneId: req.user.personne_id || null,
   });
 }));
 
