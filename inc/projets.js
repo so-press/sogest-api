@@ -12,7 +12,7 @@ const SORTABLE = new Set(['libelle', 'id', 'date_debut', 'date_fin']);
  * @param {{sort?: string, order?: 'asc'|'desc', personneId?: number|null}} [options]
  * @returns {Promise<Object[]>}
  */
-export async function listProjets({ sort = 'date_debut', order = 'desc', personneId = null } = {}) {
+export async function listProjets({ sort = 'date_debut', order = 'desc', personneId = null, search = null } = {}) {
   const query = db('projets')
     .select('*')
     .where('trash', '<>', 1)
@@ -30,6 +30,10 @@ export async function listProjets({ sort = 'date_debut', order = 'desc', personn
         });
     });
   }
+
+  // Recherche plein-texte (LIKE) sur le libellé affiché.
+  const term = String(search ?? '').trim();
+  if (term) query.where('libelle', 'like', `%${term}%`);
 
   const column = SORTABLE.has(String(sort)) ? sort : 'date_debut';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';

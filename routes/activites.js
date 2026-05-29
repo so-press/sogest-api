@@ -25,6 +25,7 @@ export const routePath = '/activites';
  *         name: sort
  *         schema: { type: string, enum: [libelle, id, periode, numero], default: periode }
  *       - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+ *       - { in: query, name: s, schema: { type: string }, description: "Recherche plein-texte (LIKE) sur le libellé" }
  *       - { in: query, name: page,  schema: { type: integer } }
  *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
  *     responses:
@@ -40,13 +41,15 @@ export const routePath = '/activites';
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req) => {
-  const { sort, order } = req.query;
+  const { sort, order, s } = req.query;
+  const search = s || null;
   if (isAdminRequest(req)) {
-    return await listActivites({ sort, order });
+    return await listActivites({ sort, order, search });
   }
   return await listActivites({
     sort,
     order,
+    search,
     personneId: req.user?.personne_id ?? 0,
     userId: req.user?.id ?? 0,
   });

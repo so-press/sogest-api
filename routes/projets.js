@@ -25,6 +25,7 @@ export const routePath = '/projets';
  *         name: sort
  *         schema: { type: string, enum: [libelle, id, date_debut, date_fin], default: date_debut }
  *       - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+ *       - { in: query, name: s, schema: { type: string }, description: "Recherche plein-texte (LIKE) sur le libellé" }
  *       - { in: query, name: page,  schema: { type: integer } }
  *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
  *     responses:
@@ -40,9 +41,9 @@ export const routePath = '/projets';
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req) => {
-  const { sort, order } = req.query;
+  const { sort, order, s } = req.query;
   const personneId = isAdminRequest(req) ? null : (req.user?.personne_id ?? 0);
-  return await listProjets({ sort, order, personneId });
+  return await listProjets({ sort, order, personneId, search: s || null });
 }));
 
 /**
