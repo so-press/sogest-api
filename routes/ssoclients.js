@@ -41,7 +41,8 @@ router.get('/', handleResponse(async (req, res) => {
  *       Dans ce cas, la réponse est « projetée » comme si la variante était
  *       le client lui-même : `client_id` et `subtitle` sont remplacés par les
  *       `clientId`/`clientName` de la variante, et le champ `variantes` est
- *       omis de la réponse.
+ *       omis de la réponse. `main_client_id` conserve le `client_id` réel du
+ *       client parent (présent sur toutes les réponses, variante ou non).
  *     parameters:
  *       - in: path
  *         name: id

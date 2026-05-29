@@ -22,6 +22,12 @@ async function formatSsoclient(row) {
     }
   }
 
+  // `main_client_id` = client_id réel du client (parent). Posé ici, avant toute
+  // surcharge par une variante : quand la réponse est « projetée » sur une
+  // variante (client_id remplacé par celui de la variante), main_client_id
+  // continue d'exposer le client_id d'origine.
+  row.main_client_id = row.client_id;
+
   const secret = row.client_secret;
   delete row.client_secret;
   row.client_secret_hash = secret ? await bcrypt.hash(secret, 10) : null;
@@ -53,8 +59,9 @@ export async function getSsoclients() {
  * Fallback : si la chaîne n'est pas numérique et qu'aucun ssoclient n'a ce
  * `client_id`, on parcourt les variantes (JSON `[{clientId, clientName}, …]`)
  * de chaque ssoclient et on renvoie le parent dont une variante matche sur
- * `clientId`. Dans ce cas, `subtitle` est remplacé par le `clientName` de la
- * variante. Volume faible côté base → boucle JS acceptable.
+ * `clientId`. Dans ce cas, `client_id`/`subtitle` sont remplacés par ceux de la
+ * variante, mais `main_client_id` garde le `client_id` réel du parent. Volume
+ * faible côté base → boucle JS acceptable.
  *
  * @param {number|string} idOrClientId
  * @returns {Promise<Object|null>}
