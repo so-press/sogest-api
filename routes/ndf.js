@@ -171,9 +171,10 @@ router.post('/', handleResponse(async (req, res) => {
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', handleResponse(async (req, res) => {
-  const ndf = await loadOwnedNdf(req, res);
-  ndf.depenses = await getDepenses(ndf.id);
-  return ndf;
+  await loadOwnedNdf(req, res);
+  // getNdf charge les dépenses (reconversion EUR au taux à date) puis relit la
+  // ndf : les totaux dénormalisés renvoyés sont donc à jour dès le premier appel.
+  return await getNdf(parseInt(req.params.id, 10), { withDepenses: true });
 }));
 
 /**

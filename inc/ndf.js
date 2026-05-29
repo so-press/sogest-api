@@ -32,8 +32,63 @@ async function tauxVersEur(devise, date) {
   return taux && taux > 0 ? taux : 1;
 }
 
-/** Convertit un montant saisi en EUR via le taux (montant_eur = montant / taux). */
-const toEur = (montant, taux) => money((parseFloat(montant) || 0) / (taux || 1));
+/**
+ * Convertit un montant vers l'EUR (montant_eur = montant / taux), en PLEINE
+ * précision et SANS arrondi par ligne — comme Sogest `deviseConvertion`.
+ * L'arrondi des sommes n'intervient qu'au total / à l'affichage : arrondir
+ * chaque ligne avant de sommer introduirait une dérive de quelques centimes.
+ * @returns {string} montant converti, non arrondi
+ */
+const toEur = (montant, taux) => String((parseFloat(montant) || 0) / (taux || 1));
+
+/**
+ * Reconvertit en EUR les montants `*_final` d'une dépense quand la conversion
+ * stockée est absente ou suspecte, et persiste le résultat. Réplique la
+ * reconversion à l'affichage de Sogest (afficherDepenses -> updateLignesNdf
+ * 'auto'), nécessaire pour les dépenses créées hors API ou dont le taux à date
+ * avait échoué (fallback taux=1 laissant `*_final` dans la devise étrangère).
+ *
+ * Cas EUR : taux=1, `*_final` = montant. Une devise étrangère à taux 1 ou absent
+ * trahit un échec de taux antérieur : on retente la source de taux. Les lignes
+ * déjà cohérentes ne déclenchent ni appel réseau ni écriture.
+ *
+ * @param {Object} row  ligne brute de la table `depenses` (mutée si reconvertie)
+ * @returns {Promise<boolean>} vrai si la ligne a été modifiée en base
+ */
+async function reconvertirDepense(row) {
+  const devise = row.devise || 'EUR';
+  const stored = parseFloat(row.taux_devise);
+  const suspect =
+    devise !== 'EUR' && (!Number.isFinite(stored) || stored <= 0 || stored === 1);
+
+  const taux = suspect
+    ? await tauxVersEur(devise, row.date_depense)
+    : (Number.isFinite(stored) && stored > 0 ? stored : 1);
+
+  const attendu = {
+    taux_devise: String(taux),
+    ht_final: toEur(row.ht, taux),
+    tva_final: toEur(row.tva, taux),
+    ttc_final: toEur(row.ttc, taux),
+  };
+
+  // Inchangé si taux et `*_final` déjà cohérents. Tolérance sous le millième
+  // d'euro (très en deçà du centime) pour ignorer les écarts de représentation
+  // flottante PHP/JS sur les lignes déjà converties par Sogest — évite de les
+  // réécrire inutilement à chaque lecture.
+  const num = (v) => parseFloat(v) || 0;
+  const proche = (a, b) => Math.abs(num(a) - num(b)) < 1e-4;
+  const inchange =
+    Number.isFinite(stored) && Math.abs(stored - taux) < 1e-9 &&
+    proche(row.ht_final, attendu.ht_final) &&
+    proche(row.tva_final, attendu.tva_final) &&
+    proche(row.ttc_final, attendu.ttc_final);
+  if (inchange) return false;
+
+  await db('depenses').where('id', row.id).update(attendu);
+  Object.assign(row, attendu);
+  return true;
+}
 
 function formatNdf(row) {
   if (!row) return null;
@@ -217,8 +272,11 @@ export async function countNdfByEtat({ userId = null, personneId = null } = {}) 
  */
 export async function getNdf(id, { withDepenses = false } = {}) {
   if (isNaN(id)) throw new Error('Invalid ndf ID');
+  // Charger les dépenses d'abord : leur lecture peut reconvertir les montants en
+  // EUR (taux à date) et recalculer les totaux dénormalisés, qu'on relit ensuite.
+  const depenses = withDepenses ? await getDepenses(id) : null;
   const ndf = formatNdf(await db('ndf').where('id', id).where('trash', '<>', 1).first() ?? null);
-  if (ndf && withDepenses) ndf.depenses = await getDepenses(id);
+  if (ndf && depenses) ndf.depenses = depenses;
   return ndf;
 }
 
@@ -237,6 +295,15 @@ export async function getDepenses(ndfId) {
       { column: 'ordre', order: 'asc' },
       { column: 'id', order: 'asc' },
     ]);
+
+  // Reconversion à l'affichage (cf. Sogest) : remet les `*_final` en EUR pour
+  // les lignes non/mal converties, puis rafraîchit les totaux de la ndf.
+  let modifie = false;
+  for (const row of rows) {
+    if (await reconvertirDepense(row)) modifie = true;
+  }
+  if (modifie) await recomputeNdf(ndfId);
+
   return rows.map(formatDepense);
 }
 
