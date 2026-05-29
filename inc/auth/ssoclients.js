@@ -96,6 +96,7 @@ console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrC
       const formatted = await formatSsoclient(row);
       formatted.client_id = match.clientId;
       formatted.subtitle = match.clientName;
+      formatted.base_url = match.url;
       delete formatted.variantes;
       return formatted;
     }
