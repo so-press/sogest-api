@@ -1,8 +1,8 @@
 import express from 'express';
-import { getSupport, getSupports } from '../inc/supports.js';
-import { getUserSupportIds } from '../inc/users.js';
-import { isAdminRequest } from '../inc/access.js';
-import { handleResponse } from '../inc/response.js';
+import { getSupport, getSupports } from '../inc/editorial/supports.js';
+import { getUserSupportIds } from '../inc/rh/users.js';
+import { isAdminRequest } from '../inc/core/access.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/supports';

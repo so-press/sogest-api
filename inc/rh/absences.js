@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { db } from '../db.js';
+import { db } from '../../db.js';
 
 // Colonnes autorisées pour le tri (évite toute injection via ?sort=)
 const SORTABLE = new Set(['date', 'valeur', 'type', 'creation', 'id']);

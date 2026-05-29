@@ -1,6 +1,6 @@
 import express from 'express';
-import { listEditions, getEdition, resolveSupportId } from '../inc/editions.js';
-import { handleResponse } from '../inc/response.js';
+import { listEditions, getEdition, resolveSupportId } from '../inc/editorial/editions.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/editions';

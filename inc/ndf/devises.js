@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
-import { sogestUrl } from './sogest.js';
-import { slugify } from './utils.js';
+import { sogestUrl } from '../core/sogest.js';
+import { slugify } from '../core/utils.js';
 
 // Sources externes (cf. include/auto/devises.inc.php de sogest) :
 // - liste des devises : devises.json servi par le site sogest

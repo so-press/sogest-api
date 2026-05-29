@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import cors from 'cors';
-import { setRequestContext } from './inc/request.js';
+import { setRequestContext } from './inc/core/request.js';
 
 // routes
 import * as absences from './routes/absences.js';

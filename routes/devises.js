@@ -1,7 +1,7 @@
 import express from 'express';
 import dayjs from 'dayjs';
-import { getAllDevises, getDevise, getTauxDevise } from '../inc/devises.js';
-import { handleResponse } from '../inc/response.js';
+import { getAllDevises, getDevise, getTauxDevise } from '../inc/ndf/devises.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/devises';

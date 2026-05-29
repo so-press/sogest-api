@@ -1,6 +1,6 @@
 import express from 'express';
-import { getEquipe, getEquipeBySlug, getEquipes, getEquipesByUserId } from '../inc/equipes.js';
-import { handleResponse } from '../inc/response.js';
+import { getEquipe, getEquipeBySlug, getEquipes, getEquipesByUserId } from '../inc/rh/equipes.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/equipes';

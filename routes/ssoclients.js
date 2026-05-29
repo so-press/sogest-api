@@ -1,6 +1,6 @@
 import express from 'express';
-import { getSsoclient, getSsoclients } from '../inc/ssoclients.js';
-import { handleResponse } from '../inc/response.js';
+import { getSsoclient, getSsoclients } from '../inc/auth/ssoclients.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/ssoclients';

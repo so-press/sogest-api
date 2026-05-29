@@ -1,4 +1,4 @@
-import { db } from '../db.js';
+import { db } from '../../db.js';
 
 const SORTABLE = new Set(['publication', 'modification', 'numero', 'id']);
 

@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
-import { db } from '../db.js';
-import { getSupport } from './supports.js';
+import { db } from '../../db.js';
+import { getSupport } from '../editorial/supports.js';
 
 const PUBLIC_FIELDS = [
   'ssoclients.id', 'ssoclients.client_id', 'ssoclients.title', 'ssoclients.subtitle', 'ssoclients.base_url',

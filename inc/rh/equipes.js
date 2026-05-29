@@ -1,7 +1,7 @@
-import { db } from '../db.js';
-import { md5, slugify } from './utils.js';
-import { resolveLogoUrls } from './supports.js';
-import { sogestUrl } from './sogest.js';
+import { db } from '../../db.js';
+import { md5, slugify } from '../core/utils.js';
+import { resolveLogoUrls } from '../editorial/supports.js';
+import { sogestUrl } from '../core/sogest.js';
 
 const SOPRESS_SUPPORT_NAME = 'SO PRESS';
 let sopressIdPromise = null;

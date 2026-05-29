@@ -13,8 +13,8 @@ import {
   deleteDepense,
   ndfAppartientA,
   ndfEstEditable,
-} from '../inc/ndf.js';
-import { handleResponse } from '../inc/response.js';
+} from '../inc/ndf/ndf.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/ndf';

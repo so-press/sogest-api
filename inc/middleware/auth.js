@@ -1,6 +1,6 @@
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
-import { getUser } from '../users.js';
+import { getUser } from '../rh/users.js';
 
 // Load config file
 const config = JSON.parse(fs.readFileSync('./config/config.json'));

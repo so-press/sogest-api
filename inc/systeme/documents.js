@@ -1,8 +1,8 @@
-import { db } from '../db.js';
-import { getContrats } from './contrats.js';
-import { getPiges } from './piges.js';
-import { sogestBaseUrl, sogestUrl } from './sogest.js';
-import { kebabToCamel, md5, choseDate } from './utils.js';
+import { db } from '../../db.js';
+import { getContrats } from '../rh/contrats.js';
+import { getPiges } from '../editorial/piges.js';
+import { sogestBaseUrl, sogestUrl } from '../core/sogest.js';
+import { kebabToCamel, md5, choseDate } from '../core/utils.js';
 
 /**
  * Récupère un document précis lié à une personne (par origine et id).

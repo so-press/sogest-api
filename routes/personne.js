@@ -1,6 +1,6 @@
 import express from 'express';
-import { getPersonne, getPersonnes, updatePersonne } from '../inc/personnes.js';
-import { handleResponse } from '../inc/response.js';
+import { getPersonne, getPersonnes, updatePersonne } from '../inc/rh/personnes.js';
+import { handleResponse } from '../inc/core/response.js';
 const router = express.Router();
 // Base path for this router
 export const routePath = '/personne';

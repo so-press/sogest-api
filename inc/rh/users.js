@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
-import { db } from '../db.js';
-import { getPersonne } from '../inc/personnes.js';
-import { slugify } from './utils.js';
+import { db } from '../../db.js';
+import { getPersonne } from './personnes.js';
+import { slugify } from '../core/utils.js';
 
 
 /**

@@ -1,5 +1,5 @@
-import { db } from '../db.js';
-import { getRequest } from './request.js';
+import { db } from '../../db.js';
+import { getRequest } from '../core/request.js';
 /**
  * Sauvegarde l'état actuel d'une ligne d'une table dans la table historique
  *

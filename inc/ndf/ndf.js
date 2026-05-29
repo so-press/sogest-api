@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
-import { db } from '../db.js';
-import { getSupport } from './supports.js';
-import { getPersonne } from './personnes.js';
+import { db } from '../../db.js';
+import { getSupport } from '../editorial/supports.js';
+import { getPersonne } from '../rh/personnes.js';
 import { getTauxDevise } from './devises.js';
 
 export const NDF_PROJET_TYPE = { PROJET: 1, ACTIVITE: 2, LIBRE: 3 };

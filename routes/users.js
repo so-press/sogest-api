@@ -1,7 +1,7 @@
 import express from 'express';
 import sharp from 'sharp';
-import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField } from '../inc/users.js';
-import { handleResponse } from '../inc/response.js';
+import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField } from '../inc/rh/users.js';
+import { handleResponse } from '../inc/core/response.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
 const router = express.Router();

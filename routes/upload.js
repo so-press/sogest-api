@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import fs from 'fs';
 import path from 'path';
-import { handleResponse } from '../inc/response.js';
+import { handleResponse } from '../inc/core/response.js';
 
 dotenv.config();
 const router = express.Router();

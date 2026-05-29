@@ -1,6 +1,6 @@
 import express from 'express';
-import { handleResponse } from '../inc/response.js';
-import { getHistorique } from '../inc/historique.js';
+import { handleResponse } from '../inc/core/response.js';
+import { getHistorique } from '../inc/systeme/historique.js';
 
 const router = express.Router();
 // Base path for this router

@@ -1,5 +1,5 @@
-import { db } from '../db.js';
-import { sogestUrl } from './sogest.js';
+import { db } from '../../db.js';
+import { sogestUrl } from '../core/sogest.js';
 
 
 async function urlExists(url) {

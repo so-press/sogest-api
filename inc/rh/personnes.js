@@ -1,7 +1,7 @@
-import { db } from '../db.js';
-import { saveToHistorique } from './historique.js';
-import { getOption } from './options.js';
-import { removeAccents, slugify, toDate } from './utils.js';
+import { db } from '../../db.js';
+import { saveToHistorique } from '../systeme/historique.js';
+import { getOption } from '../core/options.js';
+import { removeAccents, slugify, toDate } from '../core/utils.js';
 
 
 export async function getPermanents() {

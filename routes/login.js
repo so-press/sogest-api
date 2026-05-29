@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { getUserAvatar, getUserByEmail, getUserCapabilities } from '../inc/users.js';
-import { handleResponse } from '../inc/response.js';
+import { getUserAvatar, getUserByEmail, getUserCapabilities } from '../inc/rh/users.js';
+import { handleResponse } from '../inc/core/response.js';
 
 dotenv.config();
 const router = express.Router();

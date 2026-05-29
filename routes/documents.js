@@ -2,8 +2,8 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { getDocumentsForPersonne, getDocument } from '../inc/documents.js';
-import { handleResponse } from '../inc/response.js';
+import { getDocumentsForPersonne, getDocument } from '../inc/systeme/documents.js';
+import { handleResponse } from '../inc/core/response.js';
 
 dotenv.config();
 const router = express.Router();

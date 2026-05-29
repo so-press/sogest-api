@@ -1,7 +1,7 @@
 import express from 'express';
-import { listProjets, getProjet, personneCanAccessProjet } from '../inc/projets.js';
-import { isAdminRequest } from '../inc/access.js';
-import { handleResponse } from '../inc/response.js';
+import { listProjets, getProjet, personneCanAccessProjet } from '../inc/editorial/projets.js';
+import { isAdminRequest } from '../inc/core/access.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/projets';

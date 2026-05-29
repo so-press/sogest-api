@@ -73,16 +73,25 @@ All route handlers are wrapped with `handleResponse()` from `inc/response.js`:
 ### Database access
 
 Two clients coexist:
-- `mysql2/promise` pool — used in `inc/` helpers via direct SQL queries and `QueryBuilder` (`inc/query_builder.js`)
+- `mysql2/promise` pool — used in `inc/` helpers via direct SQL queries and `QueryBuilder` (`inc/core/query_builder.js`)
 - `knex` (`db.js`) — available for more complex query building
 
 `QueryBuilder` is a thin wrapper that accumulates `AND` conditions and an `ORDER BY` clause before building a parameterized SQL string.
 
 ### `inc/` helpers
 
-Each domain has a helper file (`inc/personnes.js`, `inc/users.js`, etc.) that encapsulates the DB queries. Routes import from these helpers rather than querying the DB directly.
+Each domain has a helper file that encapsulates the DB queries. Routes import from these helpers rather than querying the DB directly. Helpers are grouped into thematic subfolders mirroring the OpenAPI `x-tagGroups` and the Bruno collection:
 
-`inc/request.js` exposes `getRequest()` via `AsyncLocalStorage` so any helper can access the current request without passing it explicitly.
+- `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`
+- `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
+- `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `contrats.js`
+- `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`
+- `inc/ndf/` — `ndf.js`, `devises.js`
+- `inc/systeme/` — `documents.js`, `historique.js`, `notifications.js`
+
+Cross-folder imports are normal (e.g. `inc/ndf/ndf.js` pulls `../editorial/supports.js`, `../rh/personnes.js`, `./devises.js`). The `db` client is imported as `../../db.js` from any helper.
+
+`inc/core/request.js` exposes `getRequest()` via `AsyncLocalStorage` so any helper can access the current request without passing it explicitly.
 
 ### File upload
 

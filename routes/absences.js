@@ -7,8 +7,8 @@ import {
   updateAbsence,
   deleteAbsence,
   recapAbsences,
-} from '../inc/absences.js';
-import { handleResponse } from '../inc/response.js';
+} from '../inc/rh/absences.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 // Base path for this router

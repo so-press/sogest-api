@@ -2,9 +2,9 @@ import express from 'express';
 import {
   getNotifications,
   getNotificationsByUser
-} from '../inc/notifications.js';
-import { getPersonne } from '../inc/personnes.js';
-import { handleResponse } from '../inc/response.js';
+} from '../inc/systeme/notifications.js';
+import { getPersonne } from '../inc/rh/personnes.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/notifications';

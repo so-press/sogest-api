@@ -1,7 +1,7 @@
 import express from 'express';
-import { listActivites, getActivite, userCanAccessActivite } from '../inc/activites.js';
-import { isAdminRequest } from '../inc/access.js';
-import { handleResponse } from '../inc/response.js';
+import { listActivites, getActivite, userCanAccessActivite } from '../inc/editorial/activites.js';
+import { isAdminRequest } from '../inc/core/access.js';
+import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/activites';

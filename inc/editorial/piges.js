@@ -1,6 +1,6 @@
-import { db } from '../db.js';
-import { sogestUrl } from './sogest.js';
-import { kebabToCamel, slugify } from './utils.js';
+import { db } from '../../db.js';
+import { sogestUrl } from '../core/sogest.js';
+import { kebabToCamel, slugify } from '../core/utils.js';
 
 
 /**
