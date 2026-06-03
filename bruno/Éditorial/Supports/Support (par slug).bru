@@ -1,0 +1,23 @@
+meta {
+  name: Support (par slug)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/supports/slug/{{supportSlug}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  supportSlug: mon-support
+}

@@ -80,3 +80,19 @@ export async function getSupport(idOrSlug) {
 
   return formatSupport(await query.first() ?? null);
 }
+
+/**
+ * Récupère un support par son slug uniquement (jamais par id numérique).
+ * @param {string} slug
+ * @returns {Promise<Object|null>}
+ */
+export async function getSupportBySlug(slug) {
+  const row = await db('supports')
+    .select('*')
+    .where('trash', '<>', 1)
+    .where('indisponible', '<>', 1)
+    .andWhere('slug', slug)
+    .first();
+
+  return formatSupport(row ?? null);
+}
