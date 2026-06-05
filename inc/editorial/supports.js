@@ -83,7 +83,6 @@ export async function getSupport(idOrSlug) {
 }
 
 /**
-<<<<<<< HEAD
  * Résout un id/slug de support vers l'URL SOGEST de son fichier logo brut,
  * sans charger le support complet (pas de HEAD sur les variantes).
  * @param {number|string} idOrSlug
@@ -183,7 +182,9 @@ export async function renderSupportLogo(idOrSlug, format, color) {
   let buf = Buffer.from(await res.arrayBuffer());
   if (color) buf = await tintPng(buf, color);
   return { contentType: 'image/png', body: buf };
-=======
+}
+
+/**
  * Récupère un support par son slug uniquement (jamais par id numérique).
  * @param {string} slug
  * @returns {Promise<Object|null>}
@@ -197,5 +198,4 @@ export async function getSupportBySlug(slug) {
     .first();
 
   return formatSupport(row ?? null);
->>>>>>> 4c21ac6530c9aaf89b88d0fe4eba8400cca2160c
 }

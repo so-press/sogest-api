@@ -1,9 +1,5 @@
 import express from 'express';
-<<<<<<< HEAD
-import { getSupport, getSupports, renderSupportLogo } from '../inc/editorial/supports.js';
-=======
 import { getSupport, getSupportBySlug, getSupports } from '../inc/editorial/supports.js';
->>>>>>> 4c21ac6530c9aaf89b88d0fe4eba8400cca2160c
 import { getUserSupportIds } from '../inc/rh/users.js';
 import { isAdminRequest } from '../inc/core/access.js';
 import { handleResponse } from '../inc/core/response.js';
