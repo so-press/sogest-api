@@ -1,5 +1,9 @@
 import express from 'express';
+<<<<<<< HEAD
 import { getSupport, getSupports, renderSupportLogo } from '../inc/editorial/supports.js';
+=======
+import { getSupport, getSupportBySlug, getSupports } from '../inc/editorial/supports.js';
+>>>>>>> 4c21ac6530c9aaf89b88d0fe4eba8400cca2160c
 import { getUserSupportIds } from '../inc/rh/users.js';
 import { isAdminRequest } from '../inc/core/access.js';
 import { handleResponse } from '../inc/core/response.js';
@@ -106,6 +110,44 @@ router.get('/', handleResponse(async (req) => {
   if (isAdminRequest(req)) return all;
   const ids = new Set(await getUserSupportIds(req.user?.id));
   return all.filter((s) => ids.has(s.id));
+}));
+
+/**
+ * @openapi
+ * /supports/slug/{slug}:
+ *   get:
+ *     tags: [Supports]
+ *     summary: Détails d'un support par son slug
+ *     description: |
+ *       Recherche explicitement par `slug` (jamais par id numérique).
+ *       Un utilisateur standard ne peut accéder qu'aux supports de sa liste
+ *       (`users.supports`), sinon `403`. Les admins / token statique accèdent à tout.
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema: { type: string }
+ *         description: Slug du support
+ *     responses:
+ *       200: { description: Données du support, content: { application/json: { schema: { type: object } } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Support hors du périmètre de l'utilisateur }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.get('/slug/:slug', handleResponse(async (req, res) => {
+  const support = await getSupportBySlug(req.params.slug);
+  if (!support) {
+    res.status(404);
+    throw new Error('Support not found');
+  }
+  if (!isAdminRequest(req)) {
+    const ids = new Set(await getUserSupportIds(req.user?.id));
+    if (!ids.has(support.id)) {
+      res.status(403);
+      throw new Error('Support hors de votre périmètre');
+    }
+  }
+  return support;
 }));
 
 /**
