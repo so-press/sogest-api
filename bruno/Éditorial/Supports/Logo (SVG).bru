@@ -1,0 +1,26 @@
+meta {
+  name: Logo (SVG)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base}}/supports/{{supportSlug}}/svg/{{logoColor}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  supportSlug: so-press
+  logoColor: ff0000
+}
+
+docs {
+  Logo du support au format **SVG** (route publique, sans authentification).
+
+  - Sans couleur : `{{base}}/supports/{{supportSlug}}/svg` renvoie le SVG brut.
+  - Avec le segment `logoColor` (hexa **sans** `#`, 3 ou 6 chiffres) : le `fill`
+    du SVG est réécrit avec cette couleur.
+
+  Le slug `so-press` fonctionne comme tout autre id/slug.
+}

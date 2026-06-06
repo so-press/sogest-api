@@ -1,0 +1,27 @@
+meta {
+  name: Logo (PNG)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base}}/supports/{{supportSlug}}/png/{{logoColor}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  supportSlug: so-press
+  logoColor: ff0000
+}
+
+docs {
+  Logo du support au format **PNG** (route publique, sans authentification).
+
+  - Sans couleur : `{{base}}/supports/{{supportSlug}}/png` renvoie le PNG brut.
+  - Avec le segment `logoColor` (hexa **sans** `#`, 3 ou 6 chiffres) : aplat de
+    couleur façon « Color Overlay » Photoshop, la transparence d'origine étant
+    conservée.
+
+  Le slug `so-press` fonctionne comme tout autre id/slug.
+}
