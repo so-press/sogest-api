@@ -5,7 +5,7 @@ import { getSupport } from '../editorial/supports.js';
 const PUBLIC_FIELDS = [
   'ssoclients.id', 'ssoclients.client_id', 'ssoclients.title', 'ssoclients.subtitle', 'ssoclients.base_url',
   'ssoclients.account_recovery_url',
-  'ssoclients.qr_login', 'ssoclients.login_captcha',
+  'ssoclients.qr_login', 'ssoclients.login_captcha', 'ssoclients.two_step_login',
   'ssoclients.redirect_uris', 'ssoclients.urls', 'ssoclients.actif', 'ssoclients.payload_handler',
   'ssoclients.email', 'ssoclients.color', 'ssoclients.background',
   'ssoclients.main_color', 'ssoclients.main_color_alt',
