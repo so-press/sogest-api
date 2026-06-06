@@ -1,5 +1,5 @@
 import express from 'express';
-import { getSupport, getSupportBySlug, getSupports } from '../inc/editorial/supports.js';
+import { getSupport, getSupportBySlug, getSupports, renderSupportLogo } from '../inc/editorial/supports.js';
 import { getUserSupportIds } from '../inc/rh/users.js';
 import { isAdminRequest } from '../inc/core/access.js';
 import { handleResponse } from '../inc/core/response.js';
