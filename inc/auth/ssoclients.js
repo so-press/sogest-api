@@ -23,6 +23,10 @@ async function formatSsoclient(row) {
     }
   }
 
+  for (const field of ['qr_login', 'login_captcha', 'two_step_login']) {
+    row[field] = Boolean(row[field]);
+  }
+
   // `main_client_id` = client_id réel du client (parent). Posé ici, avant toute
   // surcharge par une variante : quand la réponse est « projetée » sur une
   // variante (client_id remplacé par celui de la variante), main_client_id
