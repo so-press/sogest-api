@@ -32,6 +32,13 @@ docs {
   « projetée » comme si la variante était le client lui-même : `client_id`
   et `subtitle` sont remplacés par les `clientId`/`clientName` de la
   variante, et le champ `variantes` est omis de la réponse.
-  
+
   Renvoie 404 si aucune correspondance directe ni dans les variantes.
+
+  Sign in with Google : si le client a `google` dans `auth_sources`, la réponse
+  expose sa config Google, consommée par le SSO (`public/google-login.php`) :
+  `google_oauth_client_id` (client OAuth « Sign in with Google »),
+  `google_publication_id` (publication RRM:E) et `google_product_id` (produit
+  exigé, optionnel). L'entité accordée à `entitlements.entites` n'est pas un
+  champ dédié : c'est le `slug` du support rattaché (objet `support`).
 }

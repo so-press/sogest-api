@@ -11,6 +11,10 @@ const PUBLIC_FIELDS = [
   'ssoclients.main_color', 'ssoclients.main_color_alt',
   'ssoclients.support_id', 'ssoclients.client_secret', 'ssoclients.auth_sources',
   'ssoclients.variantes',
+  // Config Sign in with Google (source d'auth `google`) — consommée par le SSO.
+  // L'entité accordée = slug du support rattaché (pas de colonne dédiée).
+  'ssoclients.google_oauth_client_id', 'ssoclients.google_publication_id',
+  'ssoclients.google_product_id',
   // support_id est utilisé pour charger le support, puis retiré de la réponse
 ];
 
