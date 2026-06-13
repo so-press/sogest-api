@@ -1,0 +1,25 @@
+meta {
+  name: Login config (custom domain)
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{base}}/login/config?clientId=sogest-public
+  body: none
+  auth: none
+}
+
+params:query {
+  clientId: sogest-public
+}
+
+docs {
+  Endpoint public (aucune authentification). Variante avec `clientId` : si le
+  client SSO ciblé a défini un domaine custom (champ `domain`), le host de
+  `authority` (SSO_ISSUER) est remplacé par ce domaine. Sinon, la valeur par
+  défaut est renvoyée.
+
+  Renseignez un `clientId` (ou id) existant qui possède un domaine custom pour
+  voir l'effet.
+}

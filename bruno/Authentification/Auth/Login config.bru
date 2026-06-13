@@ -12,6 +12,10 @@ get {
 
 docs {
   Endpoint public (aucune authentification). Renvoie la config OIDC publique
-  pour le front : { authority, scope }. Le client_id n'est pas renvoyé (il est
-  détenu par le front).
+  pour le front : { authority, scope }. Le client_id n'est pas renvoyé
+  (il est détenu par le front).
+
+  Sans paramètre `clientId`, les valeurs par défaut (SSO_ISSUER / SSO_JWKS_URI)
+  sont renvoyées. Voir « Login config (custom domain) » pour le cas avec domaine
+  custom.
 }

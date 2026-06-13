@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { getUserAvatar, getUserByEmail, getUserCapabilities } from '../inc/rh/users.js';
+import { getSsoclient } from '../inc/auth/ssoclients.js';
 import { handleResponse } from '../inc/core/response.js';
 
 dotenv.config();
@@ -15,12 +16,15 @@ const publicRouter = express.Router();
 export const routePath = '/login';
 
 // JWKS du SSO, initialisé à la première utilisation pour ne pas faire échouer
-// le démarrage du serveur quand le SSO n'est pas configuré.
-let ssoJwks = null;
-function getSsoJwks() {
-    if (!process.env.SSO_JWKS_URI) throw new Error('SSO is not configured');
-    if (!ssoJwks) ssoJwks = createRemoteJWKSet(new URL(process.env.SSO_JWKS_URI));
-    return ssoJwks;
+// le démarrage du serveur quand le SSO n'est pas configuré. Mis en cache par
+// URI : chaque domaine custom (cf. clients SSO) a son propre JWKS set.
+const ssoJwksByUri = new Map();
+function getSsoJwks(jwksUri = process.env.SSO_JWKS_URI) {
+    if (!jwksUri) throw new Error('SSO is not configured');
+    if (!ssoJwksByUri.has(jwksUri)) {
+        ssoJwksByUri.set(jwksUri, createRemoteJWKSet(new URL(jwksUri)));
+    }
+    return ssoJwksByUri.get(jwksUri);
 }
 
 // Allowlist des client_id autorisés à échanger un id_token (= valeurs d'`aud`
@@ -38,6 +42,25 @@ function getSsoAllowedClientIds() {
 const SOGEST_CLIENT_ID_RE = /^sogest-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function isSsoClientIdAllowed(clientId, allowedClientIds) {
     return allowedClientIds.includes(clientId) || SOGEST_CLIENT_ID_RE.test(clientId);
+}
+
+/**
+ * Remplace le host d'une URL par le domaine custom d'un client SSO, en
+ * conservant protocole, port, chemin et query d'origine. Renvoie l'URL inchangée
+ * si elle est absente/invalide ou si aucun domaine n'est fourni.
+ * @param {string} urlString  URL d'origine (ex. SSO_ISSUER / SSO_JWKS_URI)
+ * @param {string} domain     domaine custom du client (host, sans schéma)
+ * @returns {string}
+ */
+function applyCustomDomain(urlString, domain) {
+    if (!urlString || !domain) return urlString;
+    try {
+        const url = new URL(urlString);
+        url.host = domain;
+        return url.toString();
+    } catch {
+        return urlString;
+    }
 }
 
 /**
@@ -146,7 +169,18 @@ router.post('/', handleResponse(async (req, res) => {
  *       aucun secret : `authority` et `scope` transitent de toute façon dans
  *       l'URL d'autorisation du navigateur. Le `client_id` reste détenu par le
  *       front et n'est pas renvoyé ici.
+ *
+ *       Le paramètre **optionnel** `clientId` permet de cibler un client SSO :
+ *       si ce client a défini un domaine custom (champ `domain`), le host de
+ *       `authority` (= SSO_ISSUER) est remplacé par ce domaine. Sans `clientId`
+ *       (ou client sans domaine custom), la valeur par défaut est renvoyée.
  *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: clientId
+ *         required: false
+ *         schema: { type: string }
+ *         description: client_id (ou id) du client SSO ciblé, pour appliquer son domaine custom.
  *     responses:
  *       200:
  *         description: Paramètres OIDC publics
@@ -155,12 +189,20 @@ router.post('/', handleResponse(async (req, res) => {
  *             schema:
  *               type: object
  *               properties:
- *                 authority: { type: string, description: Issuer OIDC (= SSO_ISSUER) }
+ *                 authority: { type: string, description: Issuer OIDC (= SSO_ISSUER, host remplacé par le domaine custom du client si défini) }
  *                 scope:     { type: string, example: 'openid profile email' }
  */
-publicRouter.get('/config', handleResponse(async () => {
+publicRouter.get('/config', handleResponse(async (req) => {
+    const clientId = req.query?.clientId;
+
+    let domain = null;
+    if (clientId) {
+        const client = await getSsoclient(clientId);
+        domain = client?.domain || null;
+    }
+
     return {
-        authority: process.env.SSO_ISSUER,
+        authority: applyCustomDomain(process.env.SSO_ISSUER, domain),
         scope: 'openid profile email',
     };
 }));
@@ -231,10 +273,23 @@ publicRouter.post('/sso', handleResponse(async (req, res) => {
         expectedAud = allowedClientIds[0];
     }
 
+    // Si le client SSO a un domaine custom, l'id_token a été émis par cet issuer
+    // et ses clés sont publiées sur ce domaine : on aligne issuer + JWKS dessus.
+    let issuer = process.env.SSO_ISSUER;
+    let jwksUri = process.env.SSO_JWKS_URI;
+    if (client_id) {
+        const client = await getSsoclient(client_id);
+        const domain = client?.domain || null;
+        if (domain) {
+            issuer = applyCustomDomain(issuer, domain);
+            jwksUri = applyCustomDomain(jwksUri, domain);
+        }
+    }
+
     let claims;
     try {
-        ({ payload: claims } = await jwtVerify(id_token, getSsoJwks(), {
-            issuer: process.env.SSO_ISSUER,
+        ({ payload: claims } = await jwtVerify(id_token, getSsoJwks(jwksUri), {
+            issuer,
             audience: expectedAud,
         }));
     } catch (e) {
