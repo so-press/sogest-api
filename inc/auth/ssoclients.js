@@ -10,15 +10,35 @@ const PUBLIC_FIELDS = [
   'ssoclients.qr_login', 'ssoclients.login_captcha', 'ssoclients.two_step_login',
   'ssoclients.redirect_uris', 'ssoclients.urls', 'ssoclients.actif', 'ssoclients.payload_handler',
   'ssoclients.email', 'ssoclients.color', 'ssoclients.background',
+  'ssoclients.mentions',
   'ssoclients.main_color', 'ssoclients.main_color_alt',
   'ssoclients.support_id', 'ssoclients.client_secret', 'ssoclients.auth_sources',
   'ssoclients.variantes',
+  // Droits d'accès par périmètre (source d'auth `sogest`) — consommés par le SSO
+  // pour résoudre le rôle de l'utilisateur connecté. Objet indexé par client_id :
+  //   { "<client_id>": { acces_mode, droits:[{user_id, role}] } }
+  'ssoclients.droits',
   // Config Sign in with Google (source d'auth `google`) — consommée par le SSO.
   // L'entité accordée = slug du support rattaché (pas de colonne dédiée).
   'ssoclients.google_oauth_client_id', 'ssoclients.google_publication_id',
   'ssoclients.google_product_id',
   // support_id est utilisé pour charger le support, puis retiré de la réponse
 ];
+
+/**
+ * Projette l'objet `droits` (indexé par client_id) sur la seule variante
+ * demandée : on ne renvoie que l'entrée `{ acces_mode, droits:[…] }`
+ * correspondant à `clientId`, et non la table complète de toutes les variantes.
+ * Renvoie `null` si aucune entrée ne matche.
+ *
+ * @param {Object|null} droits
+ * @param {string} clientId
+ * @returns {Object|null}
+ */
+function projectDroits(droits, clientId) {
+  if (!droits || typeof droits !== 'object') return null;
+  return droits[clientId] ?? null;
+}
 
 async function formatSsoclient(row) {
   if (!row) return row;
@@ -27,6 +47,15 @@ async function formatSsoclient(row) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
+  }
+
+  // `droits` est un objet indexé par client_id (et non une liste) → fallback {}.
+  // Seulement si la colonne a été sélectionnée (absente du listing global).
+  if ('droits' in row) {
+    if (typeof row.droits === 'string') {
+      try { row.droits = JSON.parse(row.droits); } catch { row.droits = {}; }
+    }
+    if (row.droits == null) row.droits = {};
   }
 
   for (const field of ['qr_login', 'login_captcha', 'two_step_login']) {
@@ -55,8 +84,12 @@ async function formatSsoclient(row) {
  * @returns {Promise<Object[]>}
  */
 export async function getSsoclients() {
+  // `droits` est exclu de la liste : il n'a de sens que projeté sur une variante
+  // demandée (cf. getSsoclient), pas dans un listing global.
+  const fields = PUBLIC_FIELDS.filter(f => f !== 'ssoclients.droits');
+
   const rows = await db('ssoclients')
-    .select(PUBLIC_FIELDS)
+    .select(fields)
     .where('ssoclients.trash', '<>', 1)
     .orderBy('ssoclients.client_id', 'asc');
 
@@ -86,7 +119,11 @@ export async function getSsoclient(idOrClientId) {
     .andWhere(isNumeric ? 'ssoclients.id' : 'ssoclients.client_id', idOrClientId)
     .first();
 
-  if (direct) return formatSsoclient(direct);
+  if (direct) {
+    const formatted = await formatSsoclient(direct);
+    formatted.droits = projectDroits(formatted.droits, formatted.client_id);
+    return formatted;
+  }
 console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrClientId);
   // Recherche par id numérique : pas de fallback variantes (les variantes
   // n'ont pas d'id propre).
@@ -108,6 +145,7 @@ console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrC
       formatted.client_id = match.clientId;
       formatted.subtitle = match.clientName;
       formatted.base_url = match.url;
+      formatted.droits = projectDroits(formatted.droits, match.clientId);
       delete formatted.variantes;
       return formatted;
     }
