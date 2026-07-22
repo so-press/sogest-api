@@ -1,0 +1,19 @@
+meta {
+  name: Personne conges
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{base}}/personne/conges
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

@@ -53,6 +53,27 @@ export async function getPersonne(options = {}) {
 }
 
 /**
+ * Récupère les congés stockés dans `meta.conges` d'une personne.
+ * @param {number} personneId
+ * @returns {Promise<Object|null>} l'objet congés, ou null s'il n'existe pas
+ */
+export async function getConges(personneId) {
+  const personne = await getPersonne({ id: personneId });
+  if (!personne) return null;
+
+  let meta = personne.meta;
+  if (typeof meta === 'string') {
+    try {
+      meta = JSON.parse(meta);
+    } catch {
+      return null;
+    }
+  }
+
+  return meta?.conges ?? null;
+}
+
+/**
  * Formate une entrée personne issue de la base.
  *
  * @param {Object} personne - Données brutes de la personne
