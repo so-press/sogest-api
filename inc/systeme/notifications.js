@@ -27,6 +27,19 @@ export async function getNotificationsByUser(user_id) {
 }
 
 /**
+ * Marque une notification comme lue (et vue) pour son propriétaire — même
+ * sémantique que l'appli web legacy (`class.notifs.php::passerLue`). Scopée
+ * par `user_id` pour qu'un utilisateur ne puisse pas marquer la notif d'un
+ * autre.
+ * @param {number} id
+ * @param {number} user_id
+ * @returns {Promise<number>} nombre de lignes modifiées
+ */
+export async function markNotificationRead(id, user_id) {
+  return db('notifications').where({ id, user_id }).update({ lue: 1, vue: 1 });
+}
+
+/**
  * Formate une notification (ex : conversion de date)
  *
  * @param {Object} notification Données brutes issues de la BDD
