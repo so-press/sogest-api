@@ -120,6 +120,7 @@ export async function updatePersonne(id, data) {
     'bic',
     'numero_carte_presse',
     'date_carte_presse',
+    'nom_usage',
   ];
 
   const updateData = {};
