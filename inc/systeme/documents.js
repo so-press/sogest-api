@@ -54,6 +54,7 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
                     data.type = line.type_document;
                     data.url = line.url;
                     data.infos = line.nom;
+                    data.nom_document = line.nom_document;
                 }
                 final.push(data);
             }
