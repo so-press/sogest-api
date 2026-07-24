@@ -94,7 +94,33 @@ export async function updatePersonne(id, data) {
 
   await saveToHistorique('personnes', id);
 
-  const allowedFields = [ /* ...comme avant... */];
+  const allowedFields = [
+    'nom',
+    'prenom',
+    'email',
+    'email_perso',
+    'telephone',
+    'date_naissance',
+    'lieu_naissance',
+    'pays_naissance',
+    'nationalite',
+    'adresse',
+    'code_postal',
+    'ville',
+    'pays',
+    'equipe',
+    'equipe_id',
+    'fonction',
+    'contrat',
+    'transport',
+    'securite_sociale',
+    'mutuelle',
+    'deduction_forfaitaire',
+    'iban',
+    'bic',
+    'numero_carte_presse',
+    'date_carte_presse',
+  ];
 
   const updateData = {};
   for (const field of allowedFields) {
