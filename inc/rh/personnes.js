@@ -2,6 +2,7 @@ import { db } from '../../db.js';
 import { saveToHistorique } from '../systeme/historique.js';
 import { getOption } from '../core/options.js';
 import { removeAccents, slugify, toDate } from '../core/utils.js';
+import { sogestUrl } from '../core/sogest.js';
 
 
 export async function getPermanents() {
@@ -29,6 +30,36 @@ export async function getPersonnes() {
 }
 
 /**
+ * Teste si une URL répond (fichier présent sur le serveur de fichiers SOGEST).
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
+async function urlExists(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * URL de la pièce d'identité d'une personne, si un fichier existe. Le fichier
+ * n'est pas en base (uploadé depuis l'admin PHP dans uploads/files/personnes/{id}/),
+ * on teste donc les extensions autorisées par ce formulaire (doc, pdf, docx).
+ * @param {number} id
+ * @returns {Promise<string|null>}
+ */
+async function resolvePieceIdentiteUrl(id) {
+  const base = `uploads/files/personnes/${id}/`;
+  for (const ext of ['pdf', 'doc', 'docx']) {
+    const url = sogestUrl(`${base}piece-identite.${ext}`);
+    if (await urlExists(url)) return url;
+  }
+  return null;
+}
+
+/**
  * Récupère une personne par id (ou user_id).
  * @param {{id?: number, personne_id?: number, user_id?: number}} [options]
  * @returns {Promise<Object|undefined>}
@@ -49,7 +80,12 @@ export async function getPersonne(options = {}) {
     query.andWhere('id', id);
   }
 
-  return formaterPersonne(await query.first()); // returns only one row
+  const row = await query.first();
+  if (!row) return undefined;
+
+  const personne = formaterPersonne(row);
+  personne.piece_identite_url = await resolvePieceIdentiteUrl(personne.id);
+  return personne;
 }
 
 /**
