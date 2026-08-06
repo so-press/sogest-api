@@ -1,0 +1,32 @@
+meta {
+  name: Document (Fichier)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/documents/{{documentOrigin}}/{{documentId}}/fichier
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  documentOrigin: document
+  documentId: 35981
+}
+
+docs {
+  Télécharge le binaire du document (PDF le plus souvent).
+  
+  C'est l'URL renvoyée dans le champ `url` de `Documents (Liste)` : l'API vérifie
+  que le document appartient bien au porteur du JWT, puis relaie le fichier
+  depuis SOGEST en lui retransmettant le même token.
+  
+  - **404** : document inconnu ou n'appartenant pas à l'utilisateur.
+  - **502** : SOGEST injoignable, ou réponse inattendue (redirection vers son
+    login, page HTML au lieu du fichier).
+}
