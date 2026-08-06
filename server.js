@@ -113,7 +113,10 @@ app.use(cors({
     }
 
     callback(new Error('Not allowed by CORS'));
-  }
+  },
+  // Sans ça le navigateur masque l'en-tête au JS : le front ne pourrait pas
+  // récupérer le nom de fichier renvoyé par /documents/:origin/:id/fichier.
+  exposedHeaders: ['Content-Disposition'],
 }));
 
 
