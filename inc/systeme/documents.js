@@ -48,6 +48,19 @@ export function documentFileUrl(origin, id) {
 }
 
 /**
+ * URL S3 d'un document téléversé, quand son fichier y a été transféré.
+ * La colonne `documents.url` est vide tant que le document est encore servi
+ * depuis `uploads/documents/` côté SOGEST. Cette URL n'est jamais renvoyée au
+ * client : les objets S3 sont publics, seul le serveur la suit.
+ * @param {number|string} documentId
+ * @returns {Promise<string>} chaîne vide si le document n'est pas sur S3
+ */
+async function s3UrlForDocument(documentId) {
+    const [row] = await db('documents').select('url').where('id', '=', documentId).limit(1);
+    return row?.url || '';
+}
+
+/**
  * Récupère le binaire d'un document depuis SOGEST.
  * Le JWT de l'appelant est retransmis : SOGEST accepte le même token (même
  * `JWT_SECRET`, cf. `include/auto/auth.inc.php`) et refait donc son propre
@@ -59,19 +72,27 @@ export function documentFileUrl(origin, id) {
 export async function fetchDocumentFile(document, options = {}) {
     const { authorization, timeoutMs = 30000 } = options;
 
+    // Document déjà transféré sur S3 : son fichier local a été archivé côté
+    // SOGEST, `document.php` ne sait pas le servir (il ne lit pas la colonne
+    // `url`). On va donc le chercher directement sur S3, dont les objets sont
+    // publics — le contrôle de droits a déjà été fait par `getDocument()`.
+    const s3Url = document?.document_origin === 'document'
+        ? await s3UrlForDocument(document.document_id)
+        : '';
+
     const source = DOCUMENT_SOURCES[document?.document_origin];
-    if (!source) {
+    if (!s3Url && !source) {
         const err = new Error(`Origine de document inconnue : ${document?.document_origin}`);
         err.status = 404;
         throw err;
     }
 
     const headers = {};
-    if (authorization) headers.Authorization = authorization;
+    if (authorization && !s3Url) headers.Authorization = authorization;
 
     let upstream;
     try {
-        upstream = await fetch(source(document.document_id), {
+        upstream = await fetch(s3Url || source(document.document_id), {
             headers,
             // `manual` : une redirection signifie que SOGEST n'a pas accepté le
             // JWT et renvoie vers son formulaire de login — on ne veut surtout
@@ -80,7 +101,7 @@ export async function fetchDocumentFile(document, options = {}) {
             signal: AbortSignal.timeout(timeoutMs),
         });
     } catch (e) {
-        const err = new Error(`SOGEST injoignable : ${e.message}`);
+        const err = new Error(`${s3Url ? 'S3' : 'SOGEST'} injoignable : ${e.message}`);
         err.status = 502;
         throw err;
     }
@@ -92,7 +113,7 @@ export async function fetchDocumentFile(document, options = {}) {
     }
 
     if (!upstream.ok) {
-        const err = new Error(`SOGEST a répondu ${upstream.status} : ${(await upstream.text()).slice(0, 200)}`);
+        const err = new Error(`${s3Url ? 'S3' : 'SOGEST'} a répondu ${upstream.status} : ${(await upstream.text()).slice(0, 200)}`);
         err.status = upstream.status === 404 ? 404 : 502;
         throw err;
     }
@@ -109,7 +130,9 @@ export async function fetchDocumentFile(document, options = {}) {
         contentType,
         contentDisposition:
             upstream.headers.get('content-disposition') ||
-            `attachment; filename="sogest-${document.document_origin}-${document.document_id}.pdf"`,
+            // S3 ne renvoie pas d'en-tête de disposition : on retombe sur le nom
+            // du fichier en base, à défaut sur un nom construit.
+            `attachment; filename="${document.nom || `sogest-${document.document_origin}-${document.document_id}.pdf`}"`,
     };
 }
 
@@ -160,6 +183,7 @@ export async function getDocumentsForPersonne(personneId, options = {}) {
                     data.date = choseDate(line.date_creation);
                     data.type = line.type_document;
                     data.infos = line.nom;
+                    data.nom = line.nom;
                 }
                 // Toujours l'URL proxifiée par l'API : `line.url` pointe sur
                 // SOGEST et n'est pas téléchargeable depuis un navigateur.
