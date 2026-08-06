@@ -1,0 +1,24 @@
+meta {
+  name: Documents (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/documents
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Tous les documents de l'utilisateur porté par le JWT : piges (DA), contrats et
+  documents téléversés, triés par date décroissante.
+
+  Chaque entrée porte `document_origin` (`document` | `contrat` | `pige`),
+  `document_id`, et une `url` déjà proxifiée par l'API — c'est l'URL à utiliser
+  côté front, les URLs SOGEST directes n'étant pas exposées.
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Document (Unique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/documents/{{documentOrigin}}/{{documentId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  documentOrigin: document
+  documentId: 35981
+}
+
+docs {
+  Détail d'un document de l'utilisateur connecté.
+  
+  `documentOrigin` vaut `document`, `contrat` ou `pige` ; `documentId` est l'id
+  dans cette origine (les deux sont renvoyés par `Documents (Liste)`).
+  
+  Un id qui n'appartient pas à la personne du JWT renvoie **404**, pas 403 :
+  la recherche se fait uniquement dans ses propres documents.
+}
