@@ -1,0 +1,30 @@
+meta {
+  name: Absences (Historique)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base}}/absences/historique
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~action: update
+  ~absenceId: 750
+  ~from: 2026-01-01
+  ~to: 2026-12-31
+  ~sort: dateheure
+  ~order: desc
+  ~page: 1
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

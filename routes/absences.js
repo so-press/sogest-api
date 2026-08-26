@@ -8,6 +8,7 @@ import {
   deleteAbsence,
   recapAbsences,
 } from '../inc/rh/absences.js';
+import { listAbsencesHistorique } from '../inc/rh/absences_historique.js';
 import { handleResponse } from '../inc/core/response.js';
 
 const router = express.Router();
@@ -287,6 +288,69 @@ router.get('/recap', handleResponse(async (req) => {
 
   const recap = await recapAbsences({ userId: req.user.id, dateFrom: from, dateTo: to });
   return { userId: req.user.id, from, to, ...recap };
+}));
+
+/**
+ * @openapi
+ * /absences/historique:
+ *   get:
+ *     tags: [Absences]
+ *     summary: Historique des actions sur les absences de l'utilisateur connecté
+ *     description: |
+ *       Une ligne est enregistrée à chaque pose (`create`), modification (`update`)
+ *       et suppression (`delete`) d'une absence, avec l'état avant/après et l'auteur
+ *       de l'action. L'historique subsiste après la suppression de l'absence.
+ *     security:
+ *       - jwtAuth: []
+ *     parameters:
+ *       - { in: query, name: action,    schema: { type: string, enum: [create, update, delete] } }
+ *       - { in: query, name: absenceId, schema: { type: integer }, description: Filtre sur une absence précise }
+ *       - { in: query, name: from,      schema: { type: string, format: date }, description: Date d'action de début incluse }
+ *       - { in: query, name: to,        schema: { type: string, format: date }, description: Date d'action de fin incluse }
+ *       - { in: query, name: sort,      schema: { type: string, enum: [dateheure, date, action, id], default: dateheure } }
+ *       - { in: query, name: order,     schema: { type: string, enum: [asc, desc], default: desc } }
+ *       - { in: query, name: page,      schema: { type: integer } }
+ *       - { in: query, name: limit,     schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des entrées d'historique
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:         { type: integer }
+ *                       action:     { type: string, enum: [create, update, delete] }
+ *                       absence_id: { type: integer }
+ *                       user_id:    { type: integer }
+ *                       auteur_id:  { type: integer, nullable: true }
+ *                       auteur:     { type: string, nullable: true }
+ *                       date:       { type: string, format: date, nullable: true }
+ *                       type:       { type: string, nullable: true }
+ *                       valeur:     { type: number, nullable: true }
+ *                       avant:      { type: object, nullable: true }
+ *                       apres:      { type: object, nullable: true }
+ *                       ip:         { type: string, nullable: true }
+ *                       dateheure:  { type: string, format: date-time }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/historique', handleResponse(async (req) => {
+  const { action, absenceId, from, to, sort, order } = req.query;
+  return await listAbsencesHistorique({
+    userId: req.user.id,
+    action: action || null,
+    absenceId: absenceId !== undefined ? parseInt(absenceId, 10) : null,
+    dateFrom: from || null,
+    dateTo: to || null,
+    sort,
+    order,
+  });
 }));
 
 export default router;

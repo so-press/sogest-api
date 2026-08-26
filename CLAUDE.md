@@ -84,7 +84,7 @@ Each domain has a helper file that encapsulates the DB queries. Routes import fr
 
 - `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`
 - `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
-- `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `contrats.js`
+- `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `absences_historique.js`, `contrats.js`
 - `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`
 - `inc/ndf/` — `ndf.js`, `devises.js`
 - `inc/systeme/` — `documents.js`, `historique.js`, `notifications.js`

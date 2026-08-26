@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { db } from '../../db.js';
+import { logAbsence } from './absences_historique.js';
 
 // Colonnes autorisées pour le tri (évite toute injection via ?sort=)
 const SORTABLE = new Set(['date', 'valeur', 'type', 'creation', 'id']);
@@ -87,7 +88,9 @@ export async function createAbsence({ user_id, date, type = 'conge', valeur = 1 
     creation: dayjs().format('YYYY-MM-DD HH:mm:ss'),
   });
 
-  return await getAbsence(id);
+  const absence = await getAbsence(id);
+  await logAbsence('create', { apres: absence });
+  return absence;
 }
 
 /**
@@ -106,7 +109,10 @@ export async function updateAbsence(id, data) {
   }
   if (Object.keys(update).length === 0) return false;
 
+  // État avant modification, conservé pour l'historique
+  const avant = await getAbsence(id);
   const count = await db('absences').where('id', id).update(update);
+  if (count > 0) await logAbsence('update', { avant, apres: await getAbsence(id) });
   return count > 0;
 }
 
@@ -117,7 +123,9 @@ export async function updateAbsence(id, data) {
  */
 export async function deleteAbsence(id) {
   if (isNaN(id)) throw new Error('Invalid absence ID');
+  const avant = await getAbsence(id);
   const count = await db('absences').where('id', id).del();
+  if (count > 0) await logAbsence('delete', { avant });
   return count > 0;
 }
 
