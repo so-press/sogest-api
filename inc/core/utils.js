@@ -79,3 +79,17 @@ export function choseDate(...args) {
     }
     return null;
 }
+
+/**
+ * Vrai si l'URL répond en 2xx à une requête HEAD (timeout 1,5 s).
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
+export async function urlExists(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

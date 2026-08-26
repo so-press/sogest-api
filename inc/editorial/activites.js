@@ -1,4 +1,6 @@
 import { db } from '../../db.js';
+import { sogestUrl } from '../core/sogest.js';
+import { urlExists } from '../core/utils.js';
 
 const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
 
@@ -83,4 +85,51 @@ export async function userCanAccessActivite(personneId, userId, activiteId) {
     })
     .first();
   return !!row;
+}
+
+/**
+ * Extensions candidates pour le fichier `couverture.*` d'une activité,
+ * dans l'ordre de préférence (le legacy stocke le fichier tel qu'uploadé).
+ */
+const COUVERTURE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+/**
+ * URL de la couverture d'une activité (`uploads/files/activites/{id}/couverture.*`
+ * côté SOGEST), ou `null` si aucun fichier n'existe.
+ * @param {number} activiteId
+ * @returns {Promise<string|null>}
+ */
+export async function resolveCouvertureUrl(activiteId) {
+  const base = `uploads/files/activites/${activiteId}/couverture.`;
+  const urls = COUVERTURE_EXTENSIONS.map((ext) => sogestUrl(base + ext));
+  const found = await Promise.all(urls.map(urlExists));
+  const index = found.indexOf(true);
+  return index === -1 ? null : urls[index];
+}
+
+/**
+ * Dernière activité en date d'un support : la plus récente par `date_bouclage`
+ * (les activités sans date de bouclage passent en dernier), `id` en départage.
+ * Le champ `couverture` est résolu au passage.
+ * @param {number} supportId
+ * @returns {Promise<Object|null>}
+ */
+export async function getDerniereActivitePourSupport(supportId) {
+  if (isNaN(supportId)) throw new Error('Invalid support ID');
+
+  const row = await db('activites')
+    .select('*')
+    .where('support_id', supportId)
+    .where('trash', '<>', 1)
+    .where('indisponible', '<>', 1)
+    // `YEAR() = 0` plutôt qu'une comparaison à '0000-00-00' : en sql_mode
+    // strict, ce littéral de date invalide fait échouer la requête.
+    .orderByRaw('(date_bouclage IS NULL OR YEAR(date_bouclage) = 0) asc')
+    .orderBy('date_bouclage', 'desc')
+    .orderBy('id', 'desc')
+    .first();
+
+  if (!row) return null;
+
+  return { ...row, couverture: await resolveCouvertureUrl(row.id) };
 }

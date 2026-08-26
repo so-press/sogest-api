@@ -89,6 +89,11 @@ export { publicRouter };
  *       **Périmètre** : un admin (JWT `level=admin`/`ultra_admin`, ou token
  *       statique) voit tous les supports. Un utilisateur standard ne voit que les
  *       supports de sa liste (`users.supports`) ; liste vide s'il n'en a aucun.
+ *
+ *       **Magazines** : les supports `type_support = magazine` portent en plus
+ *       `derniere_activite`, l'activité la plus récente du support (par
+ *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
+ *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
  *     responses:
  *       200:
  *         description: Liste paginée des supports
@@ -118,6 +123,11 @@ router.get('/', handleResponse(async (req) => {
  *       Recherche explicitement par `slug` (jamais par id numérique).
  *       Un utilisateur standard ne peut accéder qu'aux supports de sa liste
  *       (`users.supports`), sinon `403`. Les admins / token statique accèdent à tout.
+ *
+ *       **Magazines** : les supports `type_support = magazine` portent en plus
+ *       `derniere_activite`, l'activité la plus récente du support (par
+ *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
+ *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
  *     parameters:
  *       - in: path
  *         name: slug
@@ -155,6 +165,11 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
  *     description: |
  *       Un utilisateur standard ne peut accéder qu'aux supports de sa liste
  *       (`users.supports`), sinon `403`. Les admins / token statique accèdent à tout.
+ *
+ *       **Magazines** : les supports `type_support = magazine` portent en plus
+ *       `derniere_activite`, l'activité la plus récente du support (par
+ *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
+ *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
  *     parameters:
  *       - in: path
  *         name: id

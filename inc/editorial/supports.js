@@ -1,16 +1,8 @@
 import sharp from 'sharp';
 import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
-
-
-async function urlExists(url) {
-  try {
-    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(1500) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+import { urlExists } from '../core/utils.js';
+import { getDerniereActivitePourSupport } from './activites.js';
 
 export async function resolveLogoUrls(id) {
   const base = `uploads/files/supports/${id}/`;
@@ -44,6 +36,12 @@ async function formatSupport(row) {
   }
 
   Object.assign(out, await resolveLogoUrls(out.id));
+
+  // Les magazines exposent leur dernière activité en date (avec l'URL de sa
+  // couverture) : c'est le numéro courant du support.
+  if (out.type_support === 'magazine') {
+    out.derniere_activite = await getDerniereActivitePourSupport(out.id);
+  }
 
   return out;
 }
