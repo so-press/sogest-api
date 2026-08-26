@@ -1,0 +1,81 @@
+meta {
+  name: Absences (Historique - tous)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base}}/absences/historique/tous
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~search: dupont
+  ~userId: 680
+  ~auteurId: 1
+  ~action: update
+  ~type: conge
+  ~absenceId: 750
+  ~from: 2026-01-01
+  ~to: 2026-12-31
+  ~sort: dateheure
+  ~order: desc
+  ~page: 1
+  ~limit: 50
+  ~count: 1
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  # Historique des saisies — tous utilisateurs (ultra admin)
+  
+  Historique complet des actions sur les absences (`create` / `update` / `delete`),
+  **tous utilisateurs confondus**. Alimente l'écran d'administration
+  « Historique des saisies » de l'app absences.
+  
+  ## Accès
+  
+  Réservé aux **ultra admins** : `users.level = 'admin'` **et** colonne
+  `users.ultra_admin` renseignée (même définition que la capacité
+  `can.ultraAdmin` renvoyée au login). Sinon la route répond `403`. Le token statique est refusé sur tout `/absences`
+  (`requireAuth = true` sur le routeur) : utiliser un environnement Bruno dont
+  le `jwtToken` est celui d'un ultra admin (ex. « Local - Admin »).
+  
+  La variante restreinte au périmètre de l'appelant est
+  `GET /absences/historique` (aucun droit particulier requis).
+  
+  ## Paramètres
+  
+  | Paramètre | Rôle |
+  |---|---|
+  | `search` | Recherche libre (LIKE) en OR sur : nom et email de l'utilisateur concerné, nom de l'auteur (figé et courant), type d'absence, date de l'absence |
+  | `userId` | Restreint à un utilisateur concerné |
+  | `auteurId` | Restreint à un auteur d'action |
+  | `action` | `create`, `update` ou `delete` |
+  | `type` | Type de l'absence au moment de l'action (`conge`, `maladie`, `teletravail`…) |
+  | `absenceId` | Restreint à une absence précise |
+  | `from` / `to` | Bornes sur la **date de l'action** (`dateheure`), incluses |
+  | `sort` / `order` | `dateheure` (défaut), `date`, `action`, `id` — `desc` par défaut |
+  | `page` / `limit` | Pagination (50 par page par défaut) |
+  | `count` | Ne renvoie que le bloc `pagination` (dont `total`), sans `data` |
+  
+  ## Réponse
+  
+  Chaque ligne reprend la table `absences_historique`, avec `avant` / `apres`
+  décodés en objets, plus :
+  
+  - `utilisateur` / `utilisateur_email` : identité de l'utilisateur concerné ;
+  - `auteur` : nom de l'auteur **figé au moment de l'action** ;
+  - `auteur_nom` : nom **courant** de l'auteur (jointure sur `users`).
+  
+  L'historique survit à la suppression de l'absence : `absence_id` peut pointer
+  sur une ligne qui n'existe plus.
+}

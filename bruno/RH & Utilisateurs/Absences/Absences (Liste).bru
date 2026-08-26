@@ -11,6 +11,7 @@ get {
 }
 
 params:query {
+  ~userId: 735
   ~sort: date
   ~order: desc
   ~type: conge
@@ -28,4 +29,17 @@ headers {
 
 auth:bearer {
   token: {{jwtToken}}
+}
+
+docs {
+  # Absences — liste
+  
+  Absences de l'utilisateur porté par le JWT.
+  
+  `userId` permet de viser **un autre collaborateur** : c'est réservé aux
+  **ultra admins** (`level = admin` + colonne `users.ultra_admin`), sinon `403`.
+  C'est ce que fait l'app absences quand un admin ouvre le planning de quelqu'un
+  d'autre (`?personne_id=…`). Même règle sur `GET /absences/recap`,
+  `POST /absences` (champ `user_id` dans le corps) et sur `PUT` / `DELETE`
+  d'une absence appartenant à un tiers.
 }

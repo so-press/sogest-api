@@ -50,6 +50,15 @@ All requests require an `Authorization: Bearer <token>` header (`authMiddleware`
 
 Routes with `export const requireAuth = true` additionally run `jwtOnlyMiddleware`, which blocks static-token requests. Use this for user-specific mutations.
 
+### Access scoping (`inc/core/access.js`)
+
+Two helpers decide whether a request may look beyond its own perimeter:
+
+- `isAdminRequest(req)` — static token, or JWT user with `level === 'admin'` or the `ultra_admin` column. Used by the editorial routes to bypass per-user filtering.
+- `isUltraAdminRequest(req)` — static token, or JWT user with `level === 'admin'` **and** the `ultra_admin` column. Gates the transverse admin features: `GET /absences/historique/tous`, and targeting another user on `/absences` (query `userId`, body `user_id`, and `PUT`/`DELETE` on someone else's absence — see `cibleUserId()` in `routes/absences.js`).
+
+`req.user` is the `users` row reloaded by `authMiddleware`, **not** the JWT payload: read the `ultra_admin` column, not `can.ultraAdmin` (which only exists in the login payload).
+
 ### SSO login (`POST /login/sso`)
 
 Exchanges an OpenID Connect `id_token` (signed by `SSO_ISSUER`, verified against `SSO_JWKS_URI`) for a sogest JWT, returning the same payload as `POST /login`. Called with a static token (the user has no JWT yet).

@@ -1,0 +1,50 @@
+meta {
+  name: Personnes (Permanents)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base}}/personnes/permanents?search=bel&limit=10
+  body: none
+  auth: bearer
+}
+
+params:query {
+  search: bel
+  limit: 10
+  ~id: 149
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  # Permanents (autocomplétion)
+  
+  Personnes dont le contrat figure dans l'option `CONTRATS_PERMANENTS` (même
+  périmètre que `GET /trombinoscope`) **et** qui ont un compte utilisateur actif.
+  Les personnes sans compte sont exclues : le planning d'absences est porté par
+  le compte `users`, pas par la fiche `personnes`.
+  
+  Alimente le champ « Voir le planning pour … » de l'app absences (réservé aux
+  ultra admins côté app), d'où le `user_id` renvoyé pour chaque proposition.
+  
+  ## Paramètres
+  
+  | Paramètre | Rôle |
+  |---|---|
+  | `search` | Recherche « façon slug » : insensible à la casse, aux accents et à la ponctuation, sur le nom, le prénom, le nom complet (dans les deux ordres) et l'email. Absent → liste complète |
+  | `id` | Résolution inverse : la fiche d'un `personne_id` connu (0 ou 1 élément). Renvoie vide si la personne n'est pas un permanent ou n'a pas de compte |
+  | `limit` | Nombre maximum de propositions (défaut 20), appliqué **avant** la pagination générique |
+  
+  ## Réponse
+  
+  `{ id, user_id, nom, prenom, nom_complet, email, contrat, equipe, photo }`
+  où `id` est l'id **personne** et `user_id` celui du compte utilisateur.
+}

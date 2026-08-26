@@ -10,10 +10,28 @@ get {
   auth: bearer
 }
 
+params:query {
+  ~personneId: 149
+}
+
 headers {
   ~authorization: {{token}}
 }
 
 auth:bearer {
   token: {{jwtToken}}
+}
+
+docs {
+  # Congés de la personne connectée
+  
+  Soldes issus du dernier bulletin de paie (`personnes.meta.conges`) : `solde`,
+  `n1_acquis` / `n1_pris`, `n_acquis` / `n_pris`, `date_bulletin`…
+  
+  `personneId` vise **une autre personne** : réservé aux **ultra admins**
+  (sinon `403`). Utilisé par l'app absences quand un admin consulte le planning
+  d'un collaborateur.
+  
+  Attention à l'URL : la route est `/personne/conges` (**singulier**).
+  `/personnes/conges` tombe sur `GET /personnes/:id` et répond `404`.
 }

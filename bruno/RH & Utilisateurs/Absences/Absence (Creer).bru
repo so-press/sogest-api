@@ -25,3 +25,12 @@ body:json {
     "valeur": 1
   }
 }
+
+docs {
+  # Absence — pose
+  
+  L'absence est rattachée à l'utilisateur du JWT. Ajouter `"user_id": 735` dans
+  le corps pose l'absence **pour un tiers** : réservé aux **ultra admins**
+  (sinon `403`). L'historique garde la trace des deux identités : `user_id` est
+  le collaborateur concerné, `auteur_id` celui qui a fait la saisie.
+}

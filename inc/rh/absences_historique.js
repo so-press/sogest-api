@@ -52,44 +52,79 @@ export async function logAbsence(action, { avant = null, apres = null } = {}) {
 
 /**
  * Liste filtrée de l'historique des absences.
- * Les champs `avant` / `apres` sont renvoyés décodés.
  *
- * @param {{userId?: number, absenceId?: number, action?: string, auteurId?: number, dateFrom?: string, dateTo?: string, sort?: string, order?: 'asc'|'desc'}} [options]
+ * Les champs `avant` / `apres` sont renvoyés décodés, et chaque ligne est
+ * enrichie du nom de l'utilisateur concerné (`utilisateur`, `utilisateur_email`)
+ * ainsi que du nom courant de l'auteur (`auteur_nom`, la colonne `auteur`
+ * conservant le nom figé au moment de l'action).
+ *
+ * Sans `userId`, la liste couvre **tous** les utilisateurs : le contrôle
+ * d'accès est de la responsabilité de la route appelante.
+ *
+ * @param {{userId?: number, absenceId?: number, action?: string, type?: string, auteurId?: number, dateFrom?: string, dateTo?: string, search?: string, sort?: string, order?: 'asc'|'desc'}} [options]
+ * @param {string} [options.search] Recherche libre sur le nom / l'email de l'utilisateur
+ *   concerné, le nom de l'auteur, le type d'absence ou la date de l'absence.
  * @returns {Promise<Object[]>}
  */
 export async function listAbsencesHistorique({
   userId = null,
   absenceId = null,
   action = null,
+  type = null,
   auteurId = null,
   dateFrom = null,
   dateTo = null,
+  search = null,
   sort = 'dateheure',
   order = 'desc',
 } = {}) {
-  const query = db(TABLE).select('*');
+  const query = db(`${TABLE} as h`)
+    .leftJoin('users as u', 'h.user_id', 'u.id')
+    .leftJoin('users as a', 'h.auteur_id', 'a.id')
+    .select(
+      'h.*',
+      'u.nom as utilisateur',
+      'u.email as utilisateur_email',
+      'a.nom as auteur_nom',
+    );
 
   if (userId !== null) {
     if (isNaN(userId)) throw new Error('Invalid user ID');
-    query.where('user_id', userId);
+    query.where('h.user_id', userId);
   }
   if (absenceId !== null) {
     if (isNaN(absenceId)) throw new Error('Invalid absence ID');
-    query.where('absence_id', absenceId);
+    query.where('h.absence_id', absenceId);
   }
   if (auteurId !== null) {
     if (isNaN(auteurId)) throw new Error('Invalid author ID');
-    query.where('auteur_id', auteurId);
+    query.where('h.auteur_id', auteurId);
   }
-  if (action) query.where('action', action);
+  if (action) query.where('h.action', action);
+  // Type de l'absence tel qu'il était au moment de l'action (colonne figée).
+  if (type) query.where('h.type', type);
   // Filtre sur la date de l'action (et non sur la date de l'absence)
-  if (dateFrom) query.where('dateheure', '>=', `${dateFrom} 00:00:00`);
-  if (dateTo) query.where('dateheure', '<=', `${dateTo} 23:59:59`);
+  if (dateFrom) query.where('h.dateheure', '>=', `${dateFrom} 00:00:00`);
+  if (dateTo) query.where('h.dateheure', '<=', `${dateTo} 23:59:59`);
+
+  // Recherche libre : un seul terme, appliqué en OR sur les colonnes lisibles.
+  const terme = String(search ?? '').trim();
+  if (terme) {
+    const like = `%${terme}%`;
+    query.where((qb) => {
+      qb.where('u.nom', 'like', like)
+        .orWhere('u.email', 'like', like)
+        .orWhere('h.auteur', 'like', like)
+        .orWhere('a.nom', 'like', like)
+        .orWhere('h.type', 'like', like)
+        .orWhere('h.date', 'like', like);
+    });
+  }
 
   const column = SORTABLE.has(String(sort)) ? sort : 'dateheure';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-  const rows = await query.orderBy(column, direction);
+  const rows = await query.orderBy(`h.${column}`, direction);
 
   return rows.map((row) => ({
     ...row,

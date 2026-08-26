@@ -16,6 +16,79 @@ export async function getPermanents() {
   return (await query).map(formaterPersonne);
 }
 /**
+ * Permanents disposant d'un compte utilisateur actif, filtrés par une recherche
+ * « façon slug » (insensible à la casse, aux accents et à la ponctuation) sur le
+ * nom, le prénom, le nom complet dans les deux ordres et l'email.
+ *
+ * Le `user_id` renvoyé est celui du compte `users` rattaché à la personne
+ * (jointure sur `users.personne_id`, avec repli sur la colonne
+ * `personnes.user_id`). Les personnes sans compte sont exclues : elles n'ont pas
+ * de planning d'absences, qui est porté par le compte utilisateur.
+ *
+ * @param {{search?: string, id?: number, limit?: number}} [options]
+ * @param {number} [options.id] Restreint à une personne précise (résolution d'un
+ *   `personne_id` reçu en URL : renvoie 0 ou 1 élément, et rien si la personne
+ *   n'est pas un permanent ou n'a pas de compte).
+ * @returns {Promise<Object[]>} `{ id, user_id, nom, prenom, nom_complet, email, contrat, equipe, photo }`
+ */
+export async function searchPermanents({ search = null, id = null, limit = 20 } = {}) {
+  const contrats = await getOption('CONTRATS_PERMANENTS', { filter: 'csv' });
+
+  const rows = await db('personnes as p')
+    .leftJoin('users as u', function () {
+      this.on('u.personne_id', '=', 'p.id')
+        .andOn('u.trash', '<>', db.raw('1'))
+        .andOn('u.actif', '=', db.raw('1'));
+    })
+    .select(
+      'p.id',
+      'p.nom',
+      'p.prenom',
+      'p.email',
+      'p.contrat',
+      'p.equipe',
+      'p.photo',
+      db.raw('COALESCE(u.id, p.user_id) as user_id'),
+    )
+    .where('p.trash', '<>', 1)
+    .whereIn('p.contrat', contrats)
+    .modify((q) => {
+      if (id !== null) {
+        if (isNaN(id)) throw new Error('Invalid personne ID');
+        q.where('p.id', id);
+      }
+    })
+    .orderBy([{ column: 'p.nom', order: 'asc' }, { column: 'p.prenom', order: 'asc' }]);
+
+  // Le filtrage est fait en JS (et non en SQL LIKE) pour rester insensible aux
+  // accents et à la ponctuation : « ELOI », « éloi » et « Éloi-Jean » matchent
+  // le même slug. Le volume (quelques centaines de permanents) le permet.
+  const terme = slugify(String(search ?? ''));
+
+  const resultats = rows
+    .filter((p) => Number(p.user_id) > 0)
+    .map((p) => ({
+      ...p,
+      user_id: Number(p.user_id),
+      nom_complet: [p.prenom, p.nom].filter(Boolean).join(' '),
+    }))
+    .filter((p) => {
+      if (!terme) return true;
+      const cibles = [
+        slugify(p.nom || ''),
+        slugify(p.prenom || ''),
+        slugify(p.prenom || '', p.nom || ''),
+        slugify(p.nom || '', p.prenom || ''),
+        slugify(p.email || ''),
+      ];
+      return cibles.some((c) => c.includes(terme));
+    });
+
+  const max = Number(limit);
+  return Number.isFinite(max) && max > 0 ? resultats.slice(0, max) : resultats;
+}
+
+/**
  * Liste des personnes non corbeille, triées nom/prénom.
  * @returns {Promise<Object[]>}
  */
@@ -116,6 +189,7 @@ export async function getConges(personneId) {
  * @returns {Object} Données formatées
  */
 function formaterPersonne(personne) {
+  if (!personne) return null;
   personne.date_naissance = toDate(personne.date_naissance)
   return personne;
 }

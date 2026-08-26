@@ -11,7 +11,9 @@ get {
 }
 
 params:query {
+  ~search: conge
   ~action: update
+  ~type: conge
   ~absenceId: 750
   ~from: 2026-01-01
   ~to: 2026-12-31
@@ -27,4 +29,17 @@ headers {
 
 auth:bearer {
   token: {{jwtToken}}
+}
+
+docs {
+  # Historique des saisies — utilisateur connecté
+  
+  Historique des actions (`create` / `update` / `delete`) sur les absences **de
+  l'utilisateur porté par le JWT**. Aucun droit particulier requis.
+  
+  `search` est une recherche libre (LIKE) sur l'auteur de l'action, le type
+  d'absence et la date de l'absence.
+  
+  Pour l'historique **tous utilisateurs** (réservé aux ultra admins), voir
+  `Absences (Historique - tous)` → `GET /absences/historique/tous`.
 }
