@@ -1,6 +1,6 @@
 import express from 'express';
 import sharp from 'sharp';
-import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField } from '../inc/rh/users.js';
+import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, isUserPermanent } from '../inc/rh/users.js';
 import { handleResponse } from '../inc/core/response.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -168,6 +168,34 @@ router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res
 
     await setUserLink(req.user.id, champ, valeur, libelle);
     return await getUser(req.user.id);
+}));
+
+/**
+ * @openapi
+ * /users/{id}/permanent:
+ *   get:
+ *     tags: [Users]
+ *     summary: Statut « permanent » d'un utilisateur
+ *     description: |
+ *       Indique si l'utilisateur est considéré comme permanent : compte admin, ou
+ *       personne rattachée dont le contrat figure dans l'option sogest
+ *       `CONTRATS_PERMANENTS` (cf. `User::isLoggedPermanent`). Un utilisateur
+ *       inconnu, inactif ou en corbeille renvoie `false`.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Statut permanent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 permanent: { type: boolean }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/:id/permanent', handleResponse(async (req) => {
+    return { permanent: await isUserPermanent(req.params.id) };
 }));
 
 /**

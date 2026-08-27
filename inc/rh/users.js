@@ -156,6 +156,39 @@ const SOPRESS_ACTIVITES_USER_IDS = [3867, 1838, 8, 9, 3662, 26, 1, 53];
 const truthy = (v) => v !== undefined && v !== null && v !== '' && v !== '0' && v !== 0;
 
 /**
+ * Une personne est permanente quand la colonne `personnes.permanent` le dit.
+ * Ce flag est maintenu par sogest (refreshPersonnePermanent(), reflet de
+ * contratPersonne($personne, 'permanent')) à chaque écriture sur une fiche, et
+ * rafraîchi quotidiennement par crons/permanents.php. La règle elle-même — la
+ * liste CONTRATS_PERMANENTS, les fins de stage/alternance — n'est donc jamais
+ * réimplémentée ici.
+ * @param {number} personneId
+ * @returns {Promise<boolean>}
+ */
+async function isPersonnePermanente(personneId) {
+    if (!personneId) return false;
+
+    const personne = await db('personnes').select('permanent').where('id', personneId).where('trash', '<>', 1).first();
+
+    return !!personne?.permanent;
+}
+
+/**
+ * Statut « permanent » d'un utilisateur : admin, ou personne rattachée sous
+ * contrat permanent (cf. User::isLoggedPermanent côté sogest).
+ * @param {number} userId
+ * @returns {Promise<boolean>}
+ */
+export async function isUserPermanent(userId) {
+    if (!userId || isNaN(userId)) return false;
+
+    const u = await db('users').select('level', 'personne_id').where('id', userId).where('trash', '<>', 1).first();
+    if (!u) return false;
+
+    return u.level === 'admin' || await isPersonnePermanente(u.personne_id);
+}
+
+/**
  * Capacités d'un utilisateur, portées de sogest (class.user.inc.php). Destiné à
  * être embarqué dans le JWT (`payload.can`) pour le gating UI côté front — la
  * vérification d'autorisation reste faite côté serveur sur chaque route.
@@ -219,28 +252,7 @@ export async function getUserCapabilities(userId) {
     can.adminOffice = ultraAdmin || link('admin_office');
     can.seConnecterEnTantQue = ultraAdmin || link('connect_as');
 
-    // isLoggedPermanent : admin OU contrat de la personne ∈ CONTRATS_PERMANENTS.
-    let permanent = admin;
-    if (!permanent && u.personne_id) {
-        const personne = await db('personnes').select('*').where('id', u.personne_id).where('trash', '<>', 1).first();
-        const contrat = String(personne?.contrat ?? '').trim().toLowerCase();
-        if (contrat) {
-            let permTypes = [];
-            try {
-                const opt = await db('options')
-                    .select('valeur')
-                    .where('cle', 'CONTRATS_PERMANENTS')
-                    .first();
-                permTypes = String(opt?.valeur ?? '')
-                    .split(/\r?\n/)
-                    .map((s) => s.trim().toLowerCase())
-                    .filter(Boolean);
-            } catch {
-                /* option absente */
-            }
-            permanent = permTypes.includes(contrat);
-        }
-    }
+    const permanent = admin || await isPersonnePermanente(u.personne_id);
     can.permanent = permanent;
 
     // hasAccessToPdf, part niveau utilisateur : permanent OU kiosque OU équipe
