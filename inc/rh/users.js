@@ -174,21 +174,6 @@ async function isPersonnePermanente(personneId) {
 }
 
 /**
- * Statut « permanent » d'un utilisateur : admin, ou personne rattachée sous
- * contrat permanent (cf. User::isLoggedPermanent côté sogest).
- * @param {number} userId
- * @returns {Promise<boolean>}
- */
-export async function isUserPermanent(userId) {
-    if (!userId || isNaN(userId)) return false;
-
-    const u = await db('users').select('level', 'personne_id').where('id', userId).where('trash', '<>', 1).first();
-    if (!u) return false;
-
-    return u.level === 'admin' || await isPersonnePermanente(u.personne_id);
-}
-
-/**
  * Capacités d'un utilisateur, portées de sogest (class.user.inc.php). Destiné à
  * être embarqué dans le JWT (`payload.can`) pour le gating UI côté front — la
  * vérification d'autorisation reste faite côté serveur sur chaque route.

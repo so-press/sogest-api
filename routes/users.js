@@ -1,6 +1,6 @@
 import express from 'express';
 import sharp from 'sharp';
-import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, isUserPermanent } from '../inc/rh/users.js';
+import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, getUserCapabilities } from '../inc/rh/users.js';
 import { handleResponse } from '../inc/core/response.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -172,30 +172,33 @@ router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res
 
 /**
  * @openapi
- * /users/{id}/permanent:
+ * /users/{id}/capabilities:
  *   get:
  *     tags: [Users]
- *     summary: Statut « permanent » d'un utilisateur
+ *     summary: Capacités d'un utilisateur
  *     description: |
- *       Indique si l'utilisateur est considéré comme permanent : compte admin, ou
- *       personne rattachée dont le contrat figure dans l'option sogest
- *       `CONTRATS_PERMANENTS` (cf. `User::isLoggedPermanent`). Un utilisateur
- *       inconnu, inactif ou en corbeille renvoie `false`.
+ *       Renvoie l'objet `can` (mêmes champs que `user.can` du payload de login) :
+ *       les capacités portées de sogest, dont `ultraAdmin` (compte admin **et**
+ *       colonne `ultra_admin`) et `permanent` (compte admin, ou personne dont le
+ *       contrat figure dans l'option sogest `CONTRATS_PERMANENTS`). Un utilisateur
+ *       inconnu, inactif ou en corbeille renvoie toutes les capacités à `false`.
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
  *       200:
- *         description: Statut permanent
+ *         description: Capacités de l'utilisateur
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 permanent: { type: boolean }
+ *                 ultraAdmin: { type: boolean }
+ *                 admin:      { type: boolean }
+ *                 permanent:  { type: boolean }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-router.get('/:id/permanent', handleResponse(async (req) => {
-    return { permanent: await isUserPermanent(req.params.id) };
+router.get('/:id/capabilities', handleResponse(async (req) => {
+    return await getUserCapabilities(req.params.id);
 }));
 
 /**
