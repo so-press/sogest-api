@@ -99,10 +99,11 @@ const COUVERTURE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 
 /**
  * Cache mémoire des couvertures résolues : l'URL ne dépend que de l'id de
- * l'activité, et sur une liste entière les HEAD coûtent cher. TTL court sur les
- * absences, pour qu'une couverture fraîchement uploadée apparaisse vite.
+ * l'activité, et sur une liste entière les HEAD coûtent cher. Une couverture
+ * trouvée ne bouge quasiment jamais → TTL long. TTL court sur les absences,
+ * pour qu'une couverture fraîchement uploadée apparaisse vite.
  */
-const COUVERTURE_TTL_TROUVEE_MS = 10 * 60 * 1000;
+const COUVERTURE_TTL_TROUVEE_MS = 24 * 60 * 60 * 1000;
 const COUVERTURE_TTL_ABSENTE_MS = 60 * 1000;
 const couvertureCache = new Map();
 
