@@ -1,6 +1,6 @@
 import express from 'express';
 import { getSupport, getSupportBySlug, getSupports, renderSupportLogo } from '../inc/editorial/supports.js';
-import { listActivites } from '../inc/editorial/activites.js';
+import { listActivites, withCouvertures } from '../inc/editorial/activites.js';
 import { getUserSupportIds } from '../inc/rh/users.js';
 import { isAdminRequest } from '../inc/core/access.js';
 import { handleResponse } from '../inc/core/response.js';
@@ -173,6 +173,10 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
  *       sa liste (`users.supports`, sinon `403`) et ne voit alors que les
  *       activités ayant au moins une pige liée à son `personne_id`, ou qu'il a
  *       lui-même créées.
+ *
+ *       **Magazines** : si le support est de `type_support = magazine`, chaque
+ *       activité porte en plus `couverture` (URL de l'image de couv, ou `null`),
+ *       comme `derniere_activite` sur le support.
  *     parameters:
  *       - in: path
  *         name: id
@@ -207,27 +211,32 @@ router.get('/:supportId/activites', handleResponse(async (req, res) => {
     throw new Error('Support not found');
   }
 
+  const admin = isAdminRequest(req);
+  if (!admin) {
+    const ids = new Set(await getUserSupportIds(req.user?.id));
+    if (!ids.has(support.id)) {
+      res.status(403);
+      throw new Error('Support hors de votre périmètre');
+    }
+  }
+
   const { sort, order, s } = req.query;
-  const search = s || null;
 
-  if (isAdminRequest(req)) {
-    return await listActivites({ sort, order, search, supportId: support.id });
-  }
-
-  const ids = new Set(await getUserSupportIds(req.user?.id));
-  if (!ids.has(support.id)) {
-    res.status(403);
-    throw new Error('Support hors de votre périmètre');
-  }
-
-  return await listActivites({
+  const activites = await listActivites({
     sort,
     order,
-    search,
+    search: s || null,
     supportId: support.id,
-    personneId: req.user?.personne_id ?? 0,
-    userId: req.user?.id ?? 0,
+    ...(admin ? {} : {
+      personneId: req.user?.personne_id ?? 0,
+      userId: req.user?.id ?? 0,
+    }),
   });
+
+  // Sur un magazine, chaque activité est un numéro : on résout sa couverture
+  // comme le fait `derniere_activite` sur le support.
+  if (support.type_support !== 'magazine') return activites;
+  return await withCouvertures(activites);
 }));
 
 /**

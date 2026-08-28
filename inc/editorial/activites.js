@@ -98,17 +98,67 @@ export async function userCanAccessActivite(personneId, userId, activiteId) {
 const COUVERTURE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 
 /**
+ * Cache mémoire des couvertures résolues : l'URL ne dépend que de l'id de
+ * l'activité, et sur une liste entière les HEAD coûtent cher. TTL court sur les
+ * absences, pour qu'une couverture fraîchement uploadée apparaisse vite.
+ */
+const COUVERTURE_TTL_TROUVEE_MS = 10 * 60 * 1000;
+const COUVERTURE_TTL_ABSENTE_MS = 60 * 1000;
+const couvertureCache = new Map();
+
+/**
  * URL de la couverture d'une activité (`uploads/files/activites/{id}/couverture.*`
  * côté SOGEST), ou `null` si aucun fichier n'existe.
  * @param {number} activiteId
  * @returns {Promise<string|null>}
  */
 export async function resolveCouvertureUrl(activiteId) {
+  const cached = couvertureCache.get(activiteId);
+  if (cached && cached.expire > Date.now()) return cached.url;
+
   const base = `uploads/files/activites/${activiteId}/couverture.`;
-  const urls = COUVERTURE_EXTENSIONS.map((ext) => sogestUrl(base + ext));
-  const found = await Promise.all(urls.map(urlExists));
-  const index = found.indexOf(true);
-  return index === -1 ? null : urls[index];
+
+  // La première extension trouvée gagne : on s'arrête au premier HEAD positif
+  // au lieu de tester les cinq systématiquement (cas nominal : 1 requête).
+  let url = null;
+  for (const ext of COUVERTURE_EXTENSIONS) {
+    const candidate = sogestUrl(base + ext);
+    if (await urlExists(candidate)) {
+      url = candidate;
+      break;
+    }
+  }
+
+  couvertureCache.set(activiteId, {
+    url,
+    expire: Date.now() + (url ? COUVERTURE_TTL_TROUVEE_MS : COUVERTURE_TTL_ABSENTE_MS),
+  });
+  return url;
+}
+
+/**
+ * Ajoute le champ `couverture` à chaque activité d'une liste, en bornant le
+ * parallélisme des HEAD (une liste de magazine peut compter des centaines
+ * d'activités).
+ * @param {Object[]} activites
+ * @param {number} [concurrence]
+ * @returns {Promise<Object[]>}
+ */
+export async function withCouvertures(activites, concurrence = 8) {
+  const out = new Array(activites.length);
+  let curseur = 0;
+
+  const worker = async () => {
+    while (curseur < activites.length) {
+      const index = curseur++;
+      const row = activites[index];
+      out[index] = { ...row, couverture: await resolveCouvertureUrl(row.id) };
+    }
+  };
+
+  const workers = Math.min(concurrence, activites.length);
+  await Promise.all(Array.from({ length: workers }, worker));
+  return out;
 }
 
 /**
