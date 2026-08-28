@@ -1,0 +1,31 @@
+meta {
+  name: Activites (par support)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base}}/supports/{{supportId}}/activites
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~sort: periode
+  ~order: desc
+  ~s: 
+  ~page: 1
+  ~limit: 50
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  supportId: 2
+}

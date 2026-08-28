@@ -11,14 +11,18 @@ const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
  * activités ayant au moins une pige (non corbeille) liée à `personneId`, ou
  * créées par l'utilisateur `userId` (`createur_id`).
  *
- * @param {{sort?: string, order?: 'asc'|'desc', personneId?: number|null, userId?: number|null}} [options]
+ * `supportId` restreint la liste aux activités d'un support donné.
+ *
+ * @param {{sort?: string, order?: 'asc'|'desc', personneId?: number|null, userId?: number|null, search?: string|null, supportId?: number|null}} [options]
  * @returns {Promise<Object[]>}
  */
-export async function listActivites({ sort = 'periode', order = 'desc', personneId = null, userId = null, search = null } = {}) {
+export async function listActivites({ sort = 'periode', order = 'desc', personneId = null, userId = null, search = null, supportId = null } = {}) {
   const query = db('activites')
     .select('*')
     .where('trash', '<>', 1)
     .where('indisponible', '<>', 1);
+
+  if (supportId !== null) query.where('support_id', supportId);
 
   if (personneId !== null || userId !== null) {
     query.where(function () {

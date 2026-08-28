@@ -1,5 +1,6 @@
 import express from 'express';
 import { getSupport, getSupportBySlug, getSupports, renderSupportLogo } from '../inc/editorial/supports.js';
+import { listActivites } from '../inc/editorial/activites.js';
 import { getUserSupportIds } from '../inc/rh/users.js';
 import { isAdminRequest } from '../inc/core/access.js';
 import { handleResponse } from '../inc/core/response.js';
@@ -154,6 +155,79 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
     }
   }
   return support;
+}));
+
+/**
+ * @openapi
+ * /supports/{id}/activites:
+ *   get:
+ *     tags: [Supports]
+ *     summary: Activités d'un support
+ *     description: |
+ *       Activités du support (hors corbeille et non indisponibles), triées par
+ *       période décroissante par défaut. Même contenu que `GET /activites`,
+ *       restreint à un support.
+ *
+ *       **Périmètre** : un admin (JWT `level=admin`/`ultra_admin`, ou token
+ *       statique) voit tout. Un utilisateur standard doit avoir le support dans
+ *       sa liste (`users.supports`, sinon `403`) et ne voit alors que les
+ *       activités ayant au moins une pige liée à son `personne_id`, ou qu'il a
+ *       lui-même créées.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Identifiant numérique ou slug du support
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [libelle, id, periode, numero], default: periode }
+ *       - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+ *       - { in: query, name: s, schema: { type: string }, description: "Recherche plein-texte (LIKE) sur le libellé" }
+ *       - { in: query, name: page,  schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des activités du support
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Support hors du périmètre de l'utilisateur }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.get('/:supportId/activites', handleResponse(async (req, res) => {
+  const support = await getSupport(req.params.supportId);
+  if (!support) {
+    res.status(404);
+    throw new Error('Support not found');
+  }
+
+  const { sort, order, s } = req.query;
+  const search = s || null;
+
+  if (isAdminRequest(req)) {
+    return await listActivites({ sort, order, search, supportId: support.id });
+  }
+
+  const ids = new Set(await getUserSupportIds(req.user?.id));
+  if (!ids.has(support.id)) {
+    res.status(403);
+    throw new Error('Support hors de votre périmètre');
+  }
+
+  return await listActivites({
+    sort,
+    order,
+    search,
+    supportId: support.id,
+    personneId: req.user?.personne_id ?? 0,
+    userId: req.user?.id ?? 0,
+  });
 }));
 
 /**
