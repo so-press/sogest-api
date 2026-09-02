@@ -1,6 +1,7 @@
 import express from 'express';
 import sharp from 'sharp';
 import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, getUserCapabilities } from '../inc/rh/users.js';
+import { getEquipesByUserId } from '../inc/rh/equipes.js';
 import { handleResponse } from '../inc/core/response.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -199,6 +200,36 @@ router.put('/me/links/:champ', jwtOnlyMiddleware, handleResponse(async (req, res
  */
 router.get('/:id/capabilities', handleResponse(async (req) => {
     return await getUserCapabilities(req.params.id);
+}));
+
+/**
+ * @openapi
+ * /users/{id}/equipes:
+ *   get:
+ *     tags: [Users]
+ *     summary: Équipes d'un utilisateur
+ *     description: |
+ *       Équipes visibles (hors corbeille) auxquelles l'utilisateur est rattaché,
+ *       avec son `role` dans chacune. Même contenu que `GET /equipes/user`, mais
+ *       pour un utilisateur désigné par son id : accessible au token applicatif.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *       - { in: query, name: page,  schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des équipes de l'utilisateur (avec son `role`)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:       { type: array, items: { type: object } }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get('/:id/equipes', handleResponse(async (req) => {
+    return await getEquipesByUserId(Number(req.params.id));
 }));
 
 /**
