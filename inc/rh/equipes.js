@@ -2,6 +2,7 @@ import { db } from '../../db.js';
 import { md5, slugify } from '../core/utils.js';
 import { resolveLogoUrls } from '../editorial/supports.js';
 import { sogestUrl } from '../core/sogest.js';
+import { getUsers } from './users.js';
 
 const SOPRESS_SUPPORT_NAME = 'SO PRESS';
 let sopressIdPromise = null;
@@ -207,4 +208,49 @@ export async function getEquipe(idOrSlug) {
 export async function getEquipeBySlug(slug) {
   const list = await getEquipes({ all: true });
   return list.find((r) => r.slug === slug) ?? null;
+}
+
+/**
+ * Indique si un utilisateur est membre d'une équipe (table `lien_equipe_user`).
+ * @param {number} userId
+ * @param {number} equipeId
+ * @returns {Promise<boolean>}
+ */
+export async function isUserInEquipe(userId, equipeId) {
+  if (!userId || isNaN(userId) || !equipeId || isNaN(equipeId)) return false;
+  const lien = await db('lien_equipe_user')
+    .where({ user_id: userId, equipe_id: equipeId })
+    .first();
+  return !!lien;
+}
+
+/**
+ * Membres d'une équipe : utilisateurs actifs rattachés à l'équipe, au même
+ * format que `GET /users` (avatar, links…), enrichis de leur `role` et de la
+ * date d'entrée dans l'équipe (`membre_depuis`).
+ * @param {number} equipeId
+ * @returns {Promise<Object[]>}
+ */
+export async function getMembresEquipe(equipeId) {
+  if (!equipeId || isNaN(equipeId)) throw new Error('Invalid equipe ID');
+
+  const liens = await db('lien_equipe_user')
+    .select('user_id', 'role', 'creation')
+    .where('equipe_id', equipeId);
+
+  if (!liens.length) return [];
+
+  // getUsers() filtre déjà les comptes en corbeille / inactifs et applique
+  // formatUser() : on se contente de restreindre au périmètre de l'équipe.
+  const ids = liens.map((l) => l.user_id);
+  const users = await getUsers({
+    clause: { raw: `u.id IN (${ids.map(() => '?').join(',')})`, params: ids },
+  });
+
+  const lienByUser = new Map(liens.map((l) => [l.user_id, l]));
+  return users.map((u) => ({
+    ...u,
+    role: lienByUser.get(u.id)?.role || null,
+    membre_depuis: lienByUser.get(u.id)?.creation ?? null,
+  }));
 }

@@ -1,6 +1,7 @@
 import express from 'express';
-import { getEquipe, getEquipeBySlug, getEquipes, getEquipesByUserId } from '../inc/rh/equipes.js';
+import { getEquipe, getEquipeBySlug, getEquipes, getEquipesByUserId, getMembresEquipe, isUserInEquipe } from '../inc/rh/equipes.js';
 import { handleResponse } from '../inc/core/response.js';
+import { isAdminRequest } from '../inc/core/access.js';
 
 const router = express.Router();
 export const routePath = '/equipes';
@@ -79,6 +80,71 @@ router.get('/slug/:slug', handleResponse(async (req, res) => {
     throw new Error('Equipe not found');
   }
   return equipe;
+}));
+
+/**
+ * @openapi
+ * /equipes/{id}/membres:
+ *   get:
+ *     tags: [Equipes]
+ *     summary: Membres d'une équipe
+ *     description: |
+ *       Utilisateurs actifs rattachés à l'équipe, au même format que `GET /users`
+ *       (avatar, links…), enrichis de leur `role` dans l'équipe et de la date de
+ *       rattachement (`membre_depuis`).
+ *
+ *       **Périmètre** : un admin (ou un token applicatif statique, cf.
+ *       `isAdminRequest`) voit les membres de n'importe quelle équipe ; un
+ *       utilisateur lambda uniquement ceux des équipes dont il fait lui-même
+ *       partie, sinon **403**.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Identifiant numérique ou slug de l'équipe
+ *         schema: { type: string }
+ *       - { in: query, name: page,  schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer, default: 50 } }
+ *     responses:
+ *       200:
+ *         description: Liste paginée des membres de l'équipe
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:            { type: integer }
+ *                       nom:           { type: string }
+ *                       prenom:        { type: string }
+ *                       email:         { type: string }
+ *                       role:          { type: string, nullable: true, description: "Rôle dans l'équipe" }
+ *                       membre_depuis: { type: string, format: date-time, nullable: true }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: "L'utilisateur n'est pas membre de cette équipe" }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.get('/:equipeId/membres', handleResponse(async (req, res) => {
+  const equipe = await getEquipe(req.params.equipeId);
+  if (!equipe) {
+    res.status(404);
+    throw new Error('Equipe not found');
+  }
+
+  if (!isAdminRequest(req)) {
+    // Utilisateur lambda : seulement les équipes dont il fait partie.
+    if (!req.user || !(await isUserInEquipe(req.user.id, equipe.id))) {
+      res.status(403);
+      throw new Error('Forbidden: you are not a member of this equipe');
+    }
+  }
+
+  return await getMembresEquipe(equipe.id);
 }));
 
 /**
