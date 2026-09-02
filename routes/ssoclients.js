@@ -11,6 +11,15 @@ export const routePath = '/ssoclients';
  *   get:
  *     tags: [SSO Clients]
  *     summary: Liste des SSO clients (client_secret exclu)
+ *     description: |
+ *       Liste les clients réels **et** leurs variantes : chaque variante
+ *       (champ `variantes`, JSON `[{clientId, clientName, url}, …]`) apparaît
+ *       comme une entrée à part entière, « projetée » comme sur
+ *       `GET /ssoclients/{id}` — `client_id`, `subtitle` et `base_url` sont
+ *       ceux de la variante, le champ `variantes` est omis, et
+ *       `main_client_id` conserve le `client_id` réel du client parent.
+ *       Une entrée est donc une variante ssi `client_id !== main_client_id`.
+ *       Le tri se fait sur `client_id`, toutes entrées confondues.
  *     responses:
  *       200:
  *         description: Liste paginée des SSO clients

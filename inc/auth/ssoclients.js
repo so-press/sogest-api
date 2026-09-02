@@ -80,7 +80,16 @@ async function formatSsoclient(row) {
 }
 
 /**
- * Liste des SSO clients non corbeille, triés par client_id.
+ * Liste des SSO clients non corbeille : clients réels **et** variantes, triés
+ * par client_id.
+ *
+ * Chaque variante (JSON `[{clientId, clientName, url}, …]` de la colonne
+ * `variantes`) donne une entrée à part entière, « projetée » comme dans
+ * `getSsoclient` : `client_id`, `subtitle` et `base_url` sont ceux de la
+ * variante, `variantes` est omis, et `main_client_id` conserve le `client_id`
+ * réel du client parent. Une entrée est donc une variante ssi
+ * `client_id !== main_client_id`.
+ *
  * @returns {Promise<Object[]>}
  */
 export async function getSsoclients() {
@@ -90,10 +99,27 @@ export async function getSsoclients() {
 
   const rows = await db('ssoclients')
     .select(fields)
-    .where('ssoclients.trash', '<>', 1)
-    .orderBy('ssoclients.client_id', 'asc');
+    .where('ssoclients.trash', '<>', 1);
 
-  return Promise.all(rows.map(formatSsoclient));
+  const clients = await Promise.all(rows.map(formatSsoclient));
+
+  const entries = [];
+  for (const client of clients) {
+    entries.push(client);
+
+    const variantes = Array.isArray(client.variantes) ? client.variantes : [];
+    for (const variante of variantes) {
+      if (!variante || !variante.clientId) continue;
+      const projected = { ...client };
+      projected.client_id = variante.clientId;
+      projected.subtitle = variante.clientName;
+      projected.base_url = variante.url;
+      delete projected.variantes;
+      entries.push(projected);
+    }
+  }
+
+  return entries.sort((a, b) => String(a.client_id).localeCompare(String(b.client_id)));
 }
 
 
