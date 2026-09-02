@@ -22,6 +22,7 @@ Copy `.env` from a template (not committed). Required variables:
 - `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`
 - `NO_PASSWORD_NEEDED` — set to any truthy value to bypass bcrypt check (dev only)
 - `SSO_ISSUER`, `SSO_JWKS_URI` — OpenID Connect provider used by `POST /login/sso`
+- `MAHALO_URL`, `MAHALO_TOKEN` — API Mahalo Grabber (calendriers de parution), voir plus bas
 - `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
@@ -94,13 +95,39 @@ Each domain has a helper file that encapsulates the DB queries. Routes import fr
 - `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`
 - `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
 - `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `absences_historique.js`, `contrats.js`
-- `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`
+- `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`, `mahalo.js`, `calendrier.js`
 - `inc/ndf/` — `ndf.js`, `devises.js`
 - `inc/systeme/` — `documents.js`, `historique.js`, `notifications.js`
 
 Cross-folder imports are normal (e.g. `inc/ndf/ndf.js` pulls `../editorial/supports.js`, `../rh/personnes.js`, `./devises.js`). The `db` client is imported as `../../db.js` from any helper.
 
 `inc/core/request.js` exposes `getRequest()` via `AsyncLocalStorage` so any helper can access the current request without passing it explicitly.
+
+### Calendrier de parution (Mahalo)
+
+`GET /supports/calendrier` (tous supports, ou `?supportId=`) et son pendant
+`GET /supports/:id/calendrier` renvoient un calendrier **unifié** : les items viennent
+de l'API [Mahalo Grabber](https://utils.sopress.dev/mahalo/doc) (calendriers de
+parution collectés sur Mahalo, servis depuis un cache fichier alimenté par un
+cron quotidien), les activités viennent de sogest. Chaque item est toujours
+présent, qu'une activité lui corresponde ou non.
+
+- `inc/editorial/mahalo.js` — client HTTP (`MAHALO_URL` + `MAHALO_TOKEN`), cache
+  mémoire 1 h (1 min sur erreur), table de transcodage `support_id` → `refTitre`,
+  conversion des dates UTC de Mahalo en dates civiles `Europe/Paris`.
+- `inc/editorial/calendrier.js` — rapprochement items ↔ activités.
+
+**La notion de « titre » Mahalo ne sort jamais de `mahalo.js`** : tout est
+adressé côté API par `support_id` sogest, la transco est résolue en interne. Un
+support sans correspondance arbitrée (`sogest_id: null` dans `GET /api/transco`)
+ou géré « date à date » chez Mahalo n'apporte simplement aucun item — ce n'est
+pas une erreur.
+
+Rapprochement en deux passes, une activité ne pouvant être rattachée qu'à un seul
+item : d'abord `activites.numero` = `noParution`, puis, pour les items restés
+orphelins, les activités dont `date_bouclage` tombe dans la période de parution.
+Le champ `rapprochement` vaut `numero`, `dates` ou `null`, et `activites` est
+toujours un tableau (un numéro peut porter plusieurs activités).
 
 ### File upload
 

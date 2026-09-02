@@ -1,0 +1,51 @@
+meta {
+  name: Calendrier (tous supports)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base}}/supports/calendrier?order=desc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  order: desc
+  ~du: 2026-01-01
+  ~au: 2026-12-31
+  ~avecActivite: 1
+  ~couvertures: 1
+  ~page: 1
+  ~limit: 50
+  ~count: 1
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  # Calendrier de parution unifié
+
+  Items de calendrier (Mahalo) rapprochés des activités (sogest), **tous
+  supports confondus**. Un item sans activité reste visible : c'est une
+  parution à venir ou jamais saisie, pas une anomalie.
+
+  - `rapprochement` : `numero` (activites.numero = n° de parution), `dates`
+    (date_bouclage dans la période de parution) ou `null`.
+  - `activites` est **toujours un tableau** (un numéro peut porter plusieurs
+    activités), vide si l'item n'est rapproché à rien.
+  - `date_debut` / `date_fin` sont des dates civiles Europe/Paris.
+
+  Filtres : `du` / `au` (chevauchement de période), `avecActivite=1|0`,
+  `order=asc|desc` (sur `date_debut`), `couvertures=1` (URL de couv des
+  activités de magazine, opt-in car coûteux).
+
+  Périmètre : admin = tout ; utilisateur standard = ses supports, et seules
+  ses activités sont rattachées.
+}

@@ -61,6 +61,37 @@ export async function getSupports() {
 }
 
 /**
+ * Liste brute des supports actifs : les lignes de la table, sans résolution de
+ * logo ni dernière activité (aucun aller-retour HTTP). Pour les traitements de
+ * masse qui n'ont besoin que de l'identité du support.
+ * @returns {Promise<Object[]>}
+ */
+export async function getSupportsBruts() {
+  return await db('supports')
+    .select('*')
+    .where('trash', '<>', 1)
+    .where('indisponible', '<>', 1)
+    .orderBy([{ column: 'ordre', order: 'desc' }, { column: 'nom', order: 'asc' }]);
+}
+
+/**
+ * Support brut par id numérique ou slug (pendant de `getSupportsBruts`).
+ * @param {number|string} idOrSlug
+ * @returns {Promise<Object|null>}
+ */
+export async function getSupportBrut(idOrSlug) {
+  const query = db('supports')
+    .select('*')
+    .where('trash', '<>', 1)
+    .where('indisponible', '<>', 1);
+
+  if (/^\d+$/.test(String(idOrSlug))) query.andWhere('id', idOrSlug);
+  else query.andWhere('slug', idOrSlug);
+
+  return (await query.first()) ?? null;
+}
+
+/**
  * Récupère un support par son id numérique ou son slug.
  * @param {number|string} idOrSlug
  * @returns {Promise<Object|null>}

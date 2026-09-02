@@ -1,0 +1,51 @@
+meta {
+  name: Calendrier (par support)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{base}}/supports/{{supportId}}/calendrier?order=desc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  order: desc
+  ~du: 2026-01-01
+  ~au: 2026-12-31
+  ~avecActivite: 0
+  ~couvertures: 1
+  ~page: 1
+  ~limit: 50
+  ~count: 1
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  supportId: 2
+}
+
+docs {
+  # Calendrier d'un support
+
+  Même contenu que « Calendrier (tous supports) », restreint à un support.
+  `supportId` accepte un id numérique **ou** un slug (ex. `so-foot`).
+  Équivalent strict de `GET /supports/calendrier?supportId=…`. La notion de
+  titre Mahalo n'apparaît jamais : la correspondance est faite en interne par
+  la table de transcodage du service Mahalo Grabber.
+
+  - `404` si le support n'existe pas, `403` s'il est hors du périmètre.
+  - Un support sans transcodage arbitrée, ou géré « date à date » chez Mahalo,
+    renvoie simplement une liste vide.
+
+  `avecActivite=0` est pratique pour lister les parutions **sans activité
+  saisie** dans sogest.
+}
