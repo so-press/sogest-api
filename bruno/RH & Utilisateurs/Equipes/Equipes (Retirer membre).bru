@@ -1,0 +1,36 @@
+meta {
+  name: Equipes (Retirer membre)
+  type: http
+  seq: 14
+}
+
+delete {
+  url: {{base}}/equipes/{{equipeId}}/membres/{{membreUserId}}
+  body: none
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+  ~x-auteur-user-id: spc-sogest_1
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  equipeId: 4019
+  membreUserId: 14
+}
+
+docs {
+  Retire le rattachement (le compte sogest de la personne n'est pas touché) →
+  **204** sans corps.
+
+  Retirer quelqu'un qui n'est pas membre renvoie **404 `membre_inconnu`**, et non
+  un 204 optimiste : un écran affichant une liste périmée peut le signaler.
+
+  L'en-tête `X-Auteur-User-Id` (désactivé par défaut) désigne l'auteur du
+  changement quand l'appel se fait avec un jeton applicatif statique.
+}

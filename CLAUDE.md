@@ -27,6 +27,10 @@ Copy `.env` from a template (not committed). Required variables:
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
 - `tokens` — named static API tokens (bypass JWT, allow all non-JWT-only routes)
+- `tokenScopes` — optional per-token restrictions, keyed by token **name**. Only
+  `{ "equipes": [...] }` today: it limits which teams that static token may write
+  to (`POST`/`DELETE /equipes/:id/membres`). A token absent from `tokenScopes` is
+  unrestricted, and reads are never restricted.
 - `allowedFileTypes` — MIME types accepted by the upload route
 
 ## Architecture
@@ -57,6 +61,19 @@ Two helpers decide whether a request may look beyond its own perimeter:
 
 - `isAdminRequest(req)` — static token, or JWT user with `level === 'admin'` or the `ultra_admin` column. Used by the editorial routes to bypass per-user filtering.
 - `isUltraAdminRequest(req)` — static token, or JWT user with `level === 'admin'` **and** the `ultra_admin` column. Gates the transverse admin features: `GET /absences/historique/tous`, and targeting another user on `/absences` (query `userId`, body `user_id`, and `PUT`/`DELETE` on someone else's absence — see `cibleUserId()` in `routes/absences.js`).
+
+Membership writes (`POST /equipes/:id/membres`, `DELETE
+/equipes/:id/membres/:userId`) accept a static token (within its `tokenScopes`
+perimeter), an admin JWT, or the JWT of a `manager` of that team. They are
+recorded in `historique` under table `lien_equipe_user` with `cle` = the team id
+— that table has no primary key, so `saveToHistorique()` cannot be used and the
+event itself is stored instead. Under a static token the caller may name the
+author with `auteur_user_id` (body) or the `X-Auteur-User-Id` header, which
+accept either the sogest `users.id` or the SSO `sub` (`spc-sogest_{id}`).
+
+Business errors on these routes use `httpError(status, code, message)` from
+`inc/core/response.js`: `error` then carries a stable code (`membre_existant`,
+`equipe_inconnue`, `non_habilite`…) instead of the exception message.
 
 `req.user` is the `users` row reloaded by `authMiddleware`, **not** the JWT payload: read the `ultra_admin` column, not `can.ultraAdmin` (which only exists in the login payload).
 

@@ -1,0 +1,33 @@
+meta {
+  name: Users (Recherche)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base}}/users?recherche=pontoire&limit=20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  recherche: pontoire
+  limit: 20
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Filtre la liste des comptes actifs sur le nom, le prénom, le nom complet et
+  l'email. Chaque mot doit correspondre : « pontoire », « gilles pontoire » et
+  « pontoire gilles » fonctionnent tous les trois.
+
+  Destiné aux sélecteurs de personne : sans filtre, `GET /users` renvoie plus de
+  3 700 comptes.
+}

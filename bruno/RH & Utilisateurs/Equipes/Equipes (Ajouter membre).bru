@@ -1,0 +1,47 @@
+meta {
+  name: Equipes (Ajouter membre)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{base}}/equipes/{{equipeId}}/membres
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~authorization: {{token}}
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "user_id": {{membreUserId}},
+    "role": null,
+    "auteur_user_id": null
+  }
+}
+
+vars:pre-request {
+  equipeId: 4019
+  membreUserId: 14
+}
+
+docs {
+  Rattache un utilisateur existant à l'équipe → **201** avec le membre au format
+  d'une ligne de `Equipes (Membres)`.
+
+  Habilitation : jeton applicatif statique (dans la limite de `tokenScopes` en
+  configuration), JWT admin, ou JWT d'un `manager` de l'équipe.
+
+  Erreurs : `requete_invalide` (400), `non_habilite` (403), `equipe_inconnue` /
+  `utilisateur_inconnu` (404), `membre_existant` (409).
+
+  `auteur_user_id` ne sert qu'avec un jeton statique, pour tracer l'auteur du
+  changement dans l'historique : id `users` sogest ou `sub` SSO
+  `spc-sogest_{id}`. Sous JWT, l'auteur est l'utilisateur du token.
+}

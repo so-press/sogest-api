@@ -254,3 +254,94 @@ export async function getMembresEquipe(equipeId) {
     membre_depuis: lienByUser.get(u.id)?.creation ?? null,
   }));
 }
+
+/**
+ * Rattachement brut d'un utilisateur à une équipe (ligne `lien_equipe_user`),
+ * sans décoration.
+ * @param {number} equipeId
+ * @param {number} userId
+ * @returns {Promise<Object|null>}
+ */
+export async function getLienEquipeUser(equipeId, userId) {
+  if (!equipeId || isNaN(equipeId) || !userId || isNaN(userId)) return null;
+  return (await db('lien_equipe_user')
+    .where({ equipe_id: equipeId, user_id: userId })
+    .first()) ?? null;
+}
+
+/**
+ * Trace un ajout / retrait de membre dans la table `historique`.
+ *
+ * `lien_equipe_user` n'a pas de clé primaire : on ne peut pas utiliser
+ * `saveToHistorique()` (qui historise une ligne par son `id`). On enregistre
+ * donc l'évènement lui-même, indexé sur l'équipe (`cle` = `equipe_id`).
+ *
+ * @param {'ajout'|'retrait'} action
+ * @param {number} equipeId
+ * @param {number} userId
+ * @param {string|null} role
+ * @param {{id?: number, nomComplet?: string}|null} auteur Utilisateur à l'origine
+ *   du changement ; `null` pour un appel par jeton applicatif non identifié.
+ */
+async function logMembreEquipe(action, equipeId, userId, role, auteur) {
+  await db('historique').insert({
+    table: 'lien_equipe_user',
+    cle: equipeId,
+    donnee: JSON.stringify({ action, equipe_id: equipeId, user_id: userId, role: role || null }),
+    user: auteur?.nomComplet || 'api',
+    user_id: auteur?.id || 0,
+  });
+}
+
+/**
+ * Ajoute un utilisateur à une équipe.
+ *
+ * @param {number} equipeId
+ * @param {number} userId
+ * @param {{role?: string|null, auteur?: Object|null}} [options]
+ * @returns {Promise<Object>} Le membre au format `getMembresEquipe()`
+ * @throws {Error} `err.code = 'membre_existant'` si le rattachement existe déjà
+ */
+export async function addMembreEquipe(equipeId, userId, { role = null, auteur = null } = {}) {
+  if (!equipeId || isNaN(equipeId)) throw new Error('Invalid equipe ID');
+  if (!userId || isNaN(userId)) throw new Error('Invalid user ID');
+
+  if (await getLienEquipeUser(equipeId, userId)) {
+    const err = new Error('Membre déjà rattaché à cette équipe');
+    err.code = 'membre_existant';
+    throw err;
+  }
+
+  // `role` est NOT NULL en base : chaîne vide plutôt que NULL, comme sogest.
+  await db('lien_equipe_user').insert({
+    equipe_id: equipeId,
+    user_id: userId,
+    role: role || '',
+  });
+
+  await logMembreEquipe('ajout', equipeId, userId, role, auteur);
+
+  const membres = await getMembresEquipe(equipeId);
+  return membres.find((m) => m.id === Number(userId)) ?? null;
+}
+
+/**
+ * Retire un utilisateur d'une équipe (le compte utilisateur n'est pas touché).
+ *
+ * @param {number} equipeId
+ * @param {number} userId
+ * @param {{auteur?: Object|null}} [options]
+ * @returns {Promise<boolean>} false si la personne n'était pas membre
+ */
+export async function removeMembreEquipe(equipeId, userId, { auteur = null } = {}) {
+  if (!equipeId || isNaN(equipeId)) throw new Error('Invalid equipe ID');
+  if (!userId || isNaN(userId)) throw new Error('Invalid user ID');
+
+  const lien = await getLienEquipeUser(equipeId, userId);
+  if (!lien) return false;
+
+  await db('lien_equipe_user').where({ equipe_id: equipeId, user_id: userId }).delete();
+  await logMembreEquipe('retrait', equipeId, userId, lien.role || null, auteur);
+
+  return true;
+}

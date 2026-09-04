@@ -18,6 +18,16 @@ export const routePath = '/users';
  *   get:
  *     tags: [Users]
  *     summary: Liste des utilisateurs
+ *     description: |
+ *       Liste paginée des comptes actifs. `?recherche=` filtre sur le nom, le
+ *       prénom, le nom complet et l'email : chaque mot doit correspondre, ce qui
+ *       rend possible aussi bien « pontoire » que « gilles pontoire » ou
+ *       « pontoire gilles ». Indispensable pour un sélecteur de personne, la
+ *       liste complète dépassant les 3 700 comptes.
+ *     parameters:
+ *       - { in: query, name: recherche, schema: { type: string }, description: "Filtre sur nom / prénom / email" }
+ *       - { in: query, name: page,      schema: { type: integer } }
+ *       - { in: query, name: limit,     schema: { type: integer, default: 50 } }
  *     responses:
  *       200:
  *         description: Liste paginée des utilisateurs
@@ -31,7 +41,7 @@ export const routePath = '/users';
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/', handleResponse(async (req, res) => {
-    const rows = await getUsers();
+    const rows = await getUsers({ recherche: req.query.recherche || null });
     return rows;
 }));
 

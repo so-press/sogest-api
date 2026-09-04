@@ -5,6 +5,10 @@ import { getUser } from '../rh/users.js';
 // Load config file
 const config = JSON.parse(fs.readFileSync('./config/config.json'));
 const tokens = Object.values(config.tokens);
+// Nom du jeton statique correspondant à chaque valeur : permet de restreindre
+// le périmètre d'un jeton applicatif (cf. `tokenScopes` dans config.json et
+// `isEquipeWritableByRequest()` dans inc/core/access.js).
+const tokenNames = new Map(Object.entries(config.tokens).map(([name, value]) => [value, name]));
 
 // Auth middleware
 export async function authMiddleware(req, res, next) {
@@ -17,6 +21,7 @@ export async function authMiddleware(req, res, next) {
 
   if (tokens.includes(token)) {
     req.isJwt = false;
+    req.tokenName = tokenNames.get(token) || null;
     return next();
   }
 

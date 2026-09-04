@@ -1,4 +1,23 @@
 /**
+ * Construit une erreur HTTP « métier » : statut, code d'erreur stable
+ * (renvoyé tel quel dans le champ `error`) et message lisible.
+ *
+ * Sans code, `handleResponse` retombe sur son comportement historique
+ * (`error` = message de l'exception).
+ *
+ * @param {number} status Statut HTTP
+ * @param {string} code Code stable, ex. `membre_existant`
+ * @param {string} message Message lisible destiné à l'appelant
+ * @returns {Error}
+ */
+export function httpError(status, code, message) {
+  const err = new Error(message);
+  err.status = status;
+  err.errorCode = code;
+  return err;
+}
+
+/**
  * Wrapper générique pour les handlers Express : la valeur renvoyée est sérialisée
  * en JSON, un tableau est paginé via `?page` / `?limit`, `?count=1` ne renvoie
  * que la pagination, et les erreurs sont attrapées et renvoyées en 500 (ou le
@@ -10,6 +29,9 @@ export function handleResponse(handler) {
   return async (req, res, next) => {
     try {
       const result = await handler(req, res);
+
+      // Le handler a déjà répondu lui-même (204 sans corps, res.json()…).
+      if (res.headersSent) return;
 
       const decodeMeta = (item) => {
         if (item && typeof item.meta === 'string') {
@@ -75,9 +97,11 @@ export function handleResponse(handler) {
         err.status ||
         err.statusCode ||
         (res.statusCode >= 400 ? res.statusCode : 500);
+      // Erreur métier (httpError) : `error` porte le code stable, `message` le
+      // texte lisible. Sinon, comportement historique.
       res.status(status).json({
-        error: status === 500 ? 'Server error' : (err.message || 'Error'),
-        message: '' + err,
+        error: err.errorCode || (status === 500 ? 'Server error' : (err.message || 'Error')),
+        message: err.errorCode ? err.message : '' + err,
       });
     }
   };

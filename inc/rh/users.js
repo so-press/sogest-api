@@ -57,11 +57,14 @@ export async function getUser(id) {
     }
 }
 /**
- * Liste les utilisateurs actifs selon différents critères (level, id, clause SQL).
- * @param {{level?: number, id?: number, clause?: {raw: string, params: any[]}}} [options]
+ * Liste les utilisateurs actifs selon différents critères (level, id, recherche,
+ * clause SQL).
+ * @param {{level?: number, id?: number, recherche?: string, clause?: {raw: string, params: any[]}}} [options]
+ *   `recherche` : chaque mot doit se retrouver dans le nom, le prénom, le nom
+ *   complet ou l'email (LIKE), ce qui permet « prenom nom » comme « nom prenom ».
  * @returns {Promise<Object[]>}
  */
-export async function getUsers({ level = null, id = null, clause = null } = {}) {
+export async function getUsers({ level = null, id = null, recherche = null, clause = null } = {}) {
     // Sous-requête agrégeant les valeurs liées (table `links`) par utilisateur.
     // GROUP_CONCAT car JSON_OBJECTAGG n'est pas disponible (MariaDB).
     // Séparateurs : 0x1f (champ/valeur) et 0x1e (entre paires), improbables dans les données.
@@ -98,6 +101,20 @@ export async function getUsers({ level = null, id = null, clause = null } = {}) 
 
     if (level) {
         query.andWhere('u.level', level);
+    }
+
+    // Recherche texte libre : tous les mots doivent matcher (ET), chacun sur
+    // l'un des champs identifiants. Destinée aux sélecteurs de personne, que
+    // les ~3 700 comptes rendent inutilisables sans filtre.
+    const mots = String(recherche ?? '').trim().split(/\s+/).filter(Boolean);
+    for (const mot of mots) {
+        const like = `%${mot.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+        query.andWhere((qb) => {
+            qb.where('p.nom', 'like', like)
+                .orWhere('p.prenom', 'like', like)
+                .orWhere('u.nom', 'like', like)
+                .orWhere('u.email', 'like', like);
+        });
     }
 
     if (clause) {

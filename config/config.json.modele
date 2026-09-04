@@ -3,6 +3,9 @@
     "internal-service": "",
     "dev": ""
   },
+  "tokenScopes": {
+    "internal-service": { "equipes": [4019, 4172] }
+  },
   "allowedFileTypes": [
     "image/jpeg",
     "image/png",
