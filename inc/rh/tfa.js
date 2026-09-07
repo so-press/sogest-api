@@ -190,13 +190,21 @@ export function normaliserTelephone(saisi, pays = 'FR') {
     return numero.number;
 }
 
-/** Numéro à utiliser pour joindre un compte : celui en cours d'enrôlement, sinon celui du profil. */
+/**
+ * Numéro E.164 utilisable pour joindre un compte : celui en cours d'enrôlement
+ * (déjà normalisé), sinon celui du profil.
+ *
+ * La normalisation n'est pas cosmétique : Brevo exige l'indicatif pays, or
+ * 2766 des 2902 numéros renseignés sont au format national (« 06 12 … »).
+ * Renvoie null quand le profil ne porte rien d'exploitable — un fixe, par
+ * exemple, sur lequel un SMS n'arriverait jamais.
+ */
 async function telephoneDuCompte(userId) {
     const ligne = await ligneTfa(userId);
     if (ligne?.telephone) return ligne.telephone;
 
     const user = await db('users').select('telephone').where('id', userId).first();
-    return String(user?.telephone || '').trim() || null;
+    return normaliserTelephone(String(user?.telephone || '').trim());
 }
 
 /* ------------------------------------------------------------------ */
@@ -284,7 +292,10 @@ export async function getTfaEtat(userId) {
     }
 
     const ligne = await ligneTfa(userId);
-    const telephone = String(user.telephone || '').trim();
+    // Numéro réellement utilisable, pas simplement présent : un fixe ou un
+    // numéro incomplet au profil doit mener au tunnel de saisie, pas à un SMS
+    // qui n'arrivera jamais.
+    const telephone = ligne?.telephone || normaliserTelephone(String(user.telephone || '').trim());
 
     // Les deux moyens sont toujours proposables : 808 des 3710 comptes actifs
     // n'ont pas de numéro au profil, mais ils peuvent en saisir un — il sera
@@ -301,7 +312,7 @@ export async function getTfaEtat(userId) {
         enrole: !!ligne?.enrole_le,
         methode: ligne?.enrole_le ? ligne.methode : null,
         methodes,
-        telephone: masquerTelephone(ligne?.telephone || telephone),
+        telephone: masquerTelephone(telephone),
         // Faux quand le profil ne porte pas de numéro : l'appelant sait alors
         // qu'il doit le demander avant de pouvoir envoyer un code.
         telephoneAuProfil: !!telephone,
@@ -331,6 +342,11 @@ export async function demarrerEnrolement(userId, methode, telephoneSaisi = null)
     }
 
     const user = await db('users').select('id', 'email', 'telephone').where('id', userId).first();
+
+    // État à restaurer si le nouveau moyen se révèle inutilisable (SMS refusé
+    // par le fournisseur, par exemple) : démarrer un enrôlement ne doit jamais
+    // laisser un compte moins protégé qu'avant de l'avoir tenté.
+    const precedent = await ligneTfa(userId);
 
     const ligne = {
         user_id: userId, methode, enrole_le: null, dernier_pas: null,
@@ -362,16 +378,36 @@ export async function demarrerEnrolement(userId, methode, telephoneSaisi = null)
 
     await db('users_tfa').insert(ligne).onConflict('user_id').merge();
 
-    // L'enrôlement repart de zéro : les anciens codes de secours ne valent plus.
-    await db('users_tfa_codes').where('user_id', userId).del();
+    // Les anciens codes de secours ne sont PAS supprimés ici : ils ne le seront
+    // qu'à la confirmation, par genererCodesSecours. Un enrôlement entamé puis
+    // abandonné laisse ainsi intacts les codes déjà remis à l'utilisateur.
 
     let envoi = null;
     if (methode === 'sms') {
         envoi = await envoyerCodeSms(userId);
-        if (!envoi.ok) throw new Error("Impossible d'envoyer le code par SMS à ce numéro");
+        if (!envoi.ok) {
+            await restaurerEnrolement(userId, precedent);
+            // On n'accuse pas le numéro : l'échec vient tout aussi bien du
+            // fournisseur (service SMS fermé, quota) que de la saisie.
+            throw new Error(envoi.erreur === 'pas_de_telephone'
+                ? 'Aucun numéro de mobile utilisable pour ce compte'
+                : "Le code n'a pas pu être envoyé par SMS");
+        }
     }
 
     return { methode, otpauth, telephone: envoi?.telephone ?? etat.telephone };
+}
+
+/**
+ * Remet la ligne 2FA dans l'état où elle était avant une tentative d'enrôlement
+ * ratée, ou la supprime si le compte n'était pas encore enrôlé.
+ */
+async function restaurerEnrolement(userId, precedent) {
+    if (precedent) {
+        await db('users_tfa').where('user_id', userId).update(precedent);
+    } else {
+        await db('users_tfa').where('user_id', userId).del();
+    }
 }
 
 /**
