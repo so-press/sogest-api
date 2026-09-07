@@ -165,8 +165,15 @@ d'appareil de confiance haché. Le SSO (`sso/lib/tfa.php`) ne fait qu'appeler
 `/users/{id}/tfa/*` — il ne voit ni secret ni code.
 
 Deux facteurs : TOTP (RFC 6238, fenêtre ±1 pas, anti-rejeu par mémorisation du
-pas consommé) et SMS via `BREVO_SMS_API_KEY`, clé **dédiée aux SMS** distincte
-de celle des e-mails. Huit codes de secours à usage unique sont délivrés à
+pas consommé) et SMS.
+
+L'envoi SMS passe par `inc/core/sms.js`, indépendant du fournisseur :
+`SMS_PROVIDER` vaut `brevo` (clé **dédiée aux SMS**, distincte de celle des
+e-mails) ou `ovh` (jeton applicatif, requête signée SHA1). Deux implémentations
+parce que l'émission SMS demande chez chaque opérateur une validation manuelle
+du compte et de l'émetteur : pouvoir basculer évite d'être bloqué par l'un
+d'eux. Les numéros sont normalisés en E.164 avant envoi — les deux API exigent
+l'indicatif pays, et 2766 des 2902 numéros du parc sont au format national. Huit codes de secours à usage unique sont délivrés à
 l'enrôlement, et cinq échecs consécutifs verrouillent le compte 15 minutes.
 
 Tables : `users_tfa`, `users_tfa_codes`, `users_tfa_appareils` (`sql/users_tfa.sql`).

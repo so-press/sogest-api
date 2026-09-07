@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { db } from '../../db.js';
 import { getOption } from '../core/options.js';
+import { envoyerSms } from '../core/sms.js';
 
 /**
  * Authentification forte (2FA) des comptes sogest.
@@ -194,8 +195,8 @@ export function normaliserTelephone(saisi, pays = 'FR') {
  * Numéro E.164 utilisable pour joindre un compte : celui en cours d'enrôlement
  * (déjà normalisé), sinon celui du profil.
  *
- * La normalisation n'est pas cosmétique : Brevo exige l'indicatif pays, or
- * 2766 des 2902 numéros renseignés sont au format national (« 06 12 … »).
+ * La normalisation n'est pas cosmétique : les API SMS exigent l'indicatif
+ * pays, or 2766 des 2902 numéros renseignés sont au format national.
  * Renvoie null quand le profil ne porte rien d'exploitable — un fixe, par
  * exemple, sur lequel un SMS n'arriverait jamais.
  */
@@ -495,10 +496,10 @@ export async function envoyerCodeSms(userId) {
         sms_envoye_le: new Date(),
     }).onConflict('user_id').merge(['sms_code_hash', 'sms_expire_le', 'sms_envoye_le']);
 
-    const envoye = await envoyerSmsBrevo(
+    const envoye = (await envoyerSms(
         telephone,
         `Votre code de connexion SO PRESS est ${code}. Il expire dans ${SMS_TTL / 60} minutes.`
-    );
+    )).ok;
 
     if (!envoye) {
         // L'envoi a échoué : on efface le code ET l'horodatage, sinon
@@ -509,48 +510,6 @@ export async function envoyerCodeSms(userId) {
     }
 
     return { ok: true, telephone: masquerTelephone(telephone) };
-}
-
-/**
- * Envoi SMS transactionnel via Brevo.
- *
- * La clé est DÉDIÉE aux SMS (`BREVO_SMS_API_KEY`), distincte de celle des
- * e-mails : les SMS sont facturés à l'unité, les isoler permet d'en suivre la
- * consommation et de révoquer l'une sans couper l'autre. Pas de repli sur la
- * clé e-mail — un repli enverrait des SMS facturés sans que personne ne le
- * voie. Et surtout pas de clé en dur dans le code.
- */
-async function envoyerSmsBrevo(destinataire, contenu) {
-    const cle = process.env.BREVO_SMS_API_KEY;
-    if (!cle) {
-        console.error('[tfa] BREVO_SMS_API_KEY non configurée : SMS non envoyé');
-        return false;
-    }
-
-    try {
-        const res = await fetch('https://api.brevo.com/v3/transactionalSMS/sms', {
-            method: 'POST',
-            headers: { 'api-key': cle, 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify({
-                type: 'transactional',
-                unicodeEnabled: false,
-                sender: 'SOPRESS',
-                recipient: destinataire.replace(/[\s.\-]/g, ''),
-                content: contenu,
-                tag: 'tfa, sogest',
-            }),
-            signal: AbortSignal.timeout(10000),
-        });
-
-        if (!res.ok) {
-            console.error('[tfa] Brevo SMS a répondu ' + res.status + ' : ' + (await res.text()).slice(0, 200));
-            return false;
-        }
-        return true;
-    } catch (err) {
-        console.error('[tfa] envoi SMS impossible : ' + err.message);
-        return false;
-    }
 }
 
 /* ------------------------------------------------------------------ */
