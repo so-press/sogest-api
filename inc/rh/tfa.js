@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { db } from '../../db.js';
 import { getOption } from '../core/options.js';
 
@@ -164,6 +165,41 @@ function sha256(valeur) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Numéros de téléphone                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Normalise un numéro saisi en E.164, en exigeant une ligne **mobile** : un SMS
+ * envoyé sur une ligne fixe n'arrive jamais, et l'utilisateur resterait bloqué
+ * sur un écran attendant un code qui ne viendra pas.
+ *
+ * @param {string} saisi   numéro tel que saisi (« 06 12 34 56 78 », « +33 6 … »)
+ * @param {string} [pays]  pays par défaut pour un numéro national
+ * @returns {?string} numéro E.164, ou null si invalide ou non mobile
+ */
+export function normaliserTelephone(saisi, pays = 'FR') {
+    if (!saisi || typeof saisi !== 'string') return null;
+
+    const numero = parsePhoneNumberFromString(saisi.trim(), pays);
+    if (!numero || !numero.isValid()) return null;
+
+    // MOBILE, ou l'indistinct MOBILE/FIXE de certains plans de numérotation.
+    const type = numero.getType();
+    if (type !== 'MOBILE' && type !== 'FIXED_LINE_OR_MOBILE') return null;
+
+    return numero.number;
+}
+
+/** Numéro à utiliser pour joindre un compte : celui en cours d'enrôlement, sinon celui du profil. */
+async function telephoneDuCompte(userId) {
+    const ligne = await ligneTfa(userId);
+    if (ligne?.telephone) return ligne.telephone;
+
+    const user = await db('users').select('telephone').where('id', userId).first();
+    return String(user?.telephone || '').trim() || null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Règle : qui doit une 2FA                                             */
 /* ------------------------------------------------------------------ */
 
@@ -241,16 +277,19 @@ export async function getTfaEtat(userId) {
     const user = await db('users').select('id', 'email', 'telephone')
         .where('id', userId).where('trash', '<>', 1).first();
     if (!user) {
-        return { ...policy, enrole: false, methode: null, methodes: [], telephone: null, codesSecoursRestants: 0 };
+        return {
+            ...policy, enrole: false, methode: null, methodes: [],
+            telephone: null, telephoneAuProfil: false, codesSecoursRestants: 0,
+        };
     }
 
     const ligne = await ligneTfa(userId);
     const telephone = String(user.telephone || '').trim();
 
-    // La méthode SMS n'est proposable que si le compte porte un numéro. 808 des
-    // 3710 comptes actifs n'en ont pas : pour eux, l'app est la seule voie.
-    const methodes = ['app'];
-    if (telephone) methodes.push('sms');
+    // Les deux moyens sont toujours proposables : 808 des 3710 comptes actifs
+    // n'ont pas de numéro au profil, mais ils peuvent en saisir un — il sera
+    // vérifié par un code avant d'être retenu (cf. demarrerEnrolement).
+    const methodes = ['app', 'sms'];
 
     const codesSecoursRestants = ligne?.enrole_le
         ? Number((await db('users_tfa_codes').where({ user_id: userId })
@@ -262,7 +301,10 @@ export async function getTfaEtat(userId) {
         enrole: !!ligne?.enrole_le,
         methode: ligne?.enrole_le ? ligne.methode : null,
         methodes,
-        telephone: masquerTelephone(telephone),
+        telephone: masquerTelephone(ligne?.telephone || telephone),
+        // Faux quand le profil ne porte pas de numéro : l'appelant sait alors
+        // qu'il doit le demander avant de pouvoir envoyer un code.
+        telephoneAuProfil: !!telephone,
         bloqueJusqua: ligne?.bloque_jusqua || null,
         codesSecoursRestants,
     };
@@ -282,15 +324,18 @@ export async function getTfaEtat(userId) {
  * @param {number} userId
  * @param {'app'|'sms'} methode
  */
-export async function demarrerEnrolement(userId, methode) {
+export async function demarrerEnrolement(userId, methode, telephoneSaisi = null) {
     const etat = await getTfaEtat(userId);
     if (!etat.methodes.includes(methode)) {
         throw new Error(`Méthode "${methode}" indisponible pour ce compte`);
     }
 
-    const user = await db('users').select('id', 'email').where('id', userId).first();
+    const user = await db('users').select('id', 'email', 'telephone').where('id', userId).first();
 
-    const ligne = { user_id: userId, methode, enrole_le: null, dernier_pas: null, echecs: 0, bloque_jusqua: null };
+    const ligne = {
+        user_id: userId, methode, enrole_le: null, dernier_pas: null,
+        echecs: 0, bloque_jusqua: null, telephone: null,
+    };
     let otpauth = null;
 
     if (methode === 'app') {
@@ -301,6 +346,18 @@ export async function demarrerEnrolement(userId, methode) {
         otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=SO%20PRESS&algorithm=SHA1&digits=${TOTP_CHIFFRES}&period=${TOTP_PAS}`;
     } else {
         ligne.secret = null;
+
+        // Numéro saisi pendant l'enrôlement : on le retient ici, PAS encore au
+        // profil. Il n'y sera recopié qu'une fois prouvé par un code reçu — un
+        // numéro non vérifié dans users.telephone servirait de second facteur
+        // à sa prochaine connexion sans que personne ne l'ait confirmé.
+        if (telephoneSaisi) {
+            const normalise = normaliserTelephone(telephoneSaisi);
+            if (!normalise) throw new Error('Numéro de mobile invalide');
+            ligne.telephone = normalise;
+        } else if (!String(user.telephone || '').trim()) {
+            throw new Error('Un numéro de mobile est nécessaire');
+        }
     }
 
     await db('users_tfa').insert(ligne).onConflict('user_id').merge();
@@ -308,9 +365,13 @@ export async function demarrerEnrolement(userId, methode) {
     // L'enrôlement repart de zéro : les anciens codes de secours ne valent plus.
     await db('users_tfa_codes').where('user_id', userId).del();
 
-    if (methode === 'sms') await envoyerCodeSms(userId);
+    let envoi = null;
+    if (methode === 'sms') {
+        envoi = await envoyerCodeSms(userId);
+        if (!envoi.ok) throw new Error("Impossible d'envoyer le code par SMS à ce numéro");
+    }
 
-    return { methode, otpauth, telephone: etat.telephone };
+    return { methode, otpauth, telephone: envoi?.telephone ?? etat.telephone };
 }
 
 /**
@@ -329,6 +390,16 @@ export async function confirmerEnrolement(userId, code) {
     if (!resultat.ok) return resultat;
 
     await db('users_tfa').where('user_id', userId).update({ enrole_le: db.fn.now() });
+
+    // Le code reçu prouve la possession du numéro : il rejoint le profil, mais
+    // seulement s'il n'y en avait pas. On n'écrase jamais un numéro existant —
+    // sinon quiconque connaît le mot de passe pourrait détourner le second
+    // facteur d'un compte vers son propre téléphone.
+    if (ligne.telephone) {
+        await db('users').where('id', userId).where(function () {
+            this.whereNull('telephone').orWhere('telephone', '');
+        }).update({ telephone: ligne.telephone });
+    }
 
     return { ok: true, codesSecours: await genererCodesSecours(userId) };
 }
@@ -369,8 +440,7 @@ function normaliserCodeSecours(code) {
  * @returns {Promise<{ok:boolean, erreur?:string, attendre?:number}>}
  */
 export async function envoyerCodeSms(userId) {
-    const user = await db('users').select('id', 'telephone').where('id', userId).first();
-    const telephone = String(user?.telephone || '').trim();
+    const telephone = await telephoneDuCompte(userId);
     if (!telephone) return { ok: false, erreur: 'pas_de_telephone' };
 
     const ligne = await ligneTfa(userId);

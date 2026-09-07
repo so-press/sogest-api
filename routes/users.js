@@ -367,9 +367,10 @@ router.get('/:id/tfa', handleResponse(async (req) => {
  *             type: object
  *             required: [methode]
  *             properties:
- *               methode: { type: string, enum: [app, sms] }
+ *               methode:   { type: string, enum: [app, sms] }
+ *               telephone: { type: string, description: "Mobile saisi quand le profil n'en porte pas ; il n'est recopié dans `users.telephone` qu'une fois prouvé par un code reçu" }
  *     responses:
- *       200: { description: "Enrôlement démarré (otpauth pour `app`)" }
+ *       200: { description: "Enrôlement démarré (otpauth pour `app`, numéro masqué pour `sms`)" }
  *       400: { $ref: '#/components/responses/BadRequest' }
  *       403: { description: Réservé au SSO et aux ultra admins }
  */
@@ -380,7 +381,7 @@ router.post('/:id/tfa/enroll', handleResponse(async (req) => {
         throw httpError(400, 'methode_invalide', 'La méthode doit être "app" ou "sms".');
     }
     try {
-        return await demarrerEnrolement(req.params.id, methode);
+        return await demarrerEnrolement(req.params.id, methode, req.body?.telephone ?? null);
     } catch (err) {
         throw httpError(400, 'enrolement_impossible', err.message);
     }

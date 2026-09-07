@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS `users_tfa` (
   `derniere_verif` datetime DEFAULT NULL,
   `echecs` smallint NOT NULL DEFAULT '0' COMMENT 'échecs consécutifs depuis la dernière réussite',
   `bloque_jusqua` datetime DEFAULT NULL COMMENT 'verrou temporaire après trop d''échecs',
+  `telephone` varchar(30) DEFAULT NULL COMMENT 'numéro utilisé pour la 2FA, saisi à l''enrôlement quand le profil n''en porte pas ; recopié dans users.telephone une fois vérifié',
   `sms_code_hash` char(64) DEFAULT NULL COMMENT 'sha256 du code SMS en cours (méthode sms)',
   `sms_expire_le` datetime DEFAULT NULL,
   `sms_envoye_le` datetime DEFAULT NULL COMMENT 'sert à espacer deux envois',
