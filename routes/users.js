@@ -2,7 +2,13 @@ import express from 'express';
 import sharp from 'sharp';
 import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, getUserCapabilities } from '../inc/rh/users.js';
 import { getEquipesByUserId } from '../inc/rh/equipes.js';
-import { handleResponse } from '../inc/core/response.js';
+import { handleResponse, httpError } from '../inc/core/response.js';
+import { isUltraAdminRequest } from '../inc/core/access.js';
+import {
+    getTfaEtat, demarrerEnrolement, confirmerEnrolement, verifierCode,
+    envoyerCodeSms, genererCodesSecours, confierAppareil, appareilDeConfiance,
+    revoquerAppareils, reinitialiserTfa,
+} from '../inc/rh/tfa.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
 const router = express.Router();
@@ -280,6 +286,304 @@ router.get('/:id/equipes', handleResponse(async (req) => {
  */
 router.get('/:id/links', handleResponse(async (req) => {
     return await getUserLinks(req.params.id, { includeInternal: true });
+}));
+
+
+/* ------------------------------------------------------------------ */
+/* Authentification forte (2FA)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Les endpoints 2FA manipulent du matériel d'authentification : ils sont
+ * réservés aux appels machine de confiance (jeton statique — c'est le SSO qui
+ * mène le parcours) et aux ultra admins. Un JWT d'utilisateur ordinaire ne peut
+ * donc pas cibler le compte d'un tiers, ni éprouver ses codes.
+ */
+function exigerAccesTfa(req) {
+    if (!isUltraAdminRequest(req)) {
+        throw httpError(403, 'non_habilite', 'Accès réservé au SSO et aux ultra admins.');
+    }
+}
+
+/**
+ * @openapi
+ * /users/{id}/tfa:
+ *   get:
+ *     tags: [Users]
+ *     summary: État de l'authentification forte d'un utilisateur
+ *     description: |
+ *       Dit si le compte **doit** une 2FA (`requise`), pourquoi (`raison` :
+ *       `ultra_admin`, `reglage_compte`, `option_globale`, `exempte`,
+ *       `non_active`), s'il est déjà enrôlé et par quel moyen. La règle est
+ *       calculée par sogest et n'est jamais dupliquée côté SSO.
+ *
+ *       Ne renvoie aucun secret : le numéro de téléphone est masqué.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: État 2FA du compte
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 requise:     { type: boolean }
+ *                 obligatoire: { type: boolean, description: "Ultra admin : exigée quel que soit le réglage" }
+ *                 raison:      { type: string }
+ *                 reglage:     { type: string, enum: [oui, non, defaut] }
+ *                 enrole:      { type: boolean }
+ *                 methode:     { type: string, nullable: true, enum: [app, sms] }
+ *                 methodes:    { type: array, items: { type: string } }
+ *                 telephone:   { type: string, nullable: true, description: "Masqué" }
+ *                 codesSecoursRestants: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Réservé au SSO et aux ultra admins }
+ */
+router.get('/:id/tfa', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    return await getTfaEtat(req.params.id);
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/enroll:
+ *   post:
+ *     tags: [Users]
+ *     summary: Démarre un enrôlement 2FA
+ *     description: |
+ *       Pour `app`, renvoie l'URI `otpauth://` que l'appelant transforme en QR
+ *       code. Pour `sms`, envoie immédiatement un premier code.
+ *
+ *       L'enrôlement n'est effectif qu'après `POST /tfa/enroll/confirm` : un
+ *       parcours abandonné ne verrouille jamais un compte.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [methode]
+ *             properties:
+ *               methode: { type: string, enum: [app, sms] }
+ *     responses:
+ *       200: { description: "Enrôlement démarré (otpauth pour `app`)" }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       403: { description: Réservé au SSO et aux ultra admins }
+ */
+router.post('/:id/tfa/enroll', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    const methode = req.body?.methode;
+    if (!['app', 'sms'].includes(methode)) {
+        throw httpError(400, 'methode_invalide', 'La méthode doit être "app" ou "sms".');
+    }
+    try {
+        return await demarrerEnrolement(req.params.id, methode);
+    } catch (err) {
+        throw httpError(400, 'enrolement_impossible', err.message);
+    }
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/enroll/confirm:
+ *   post:
+ *     tags: [Users]
+ *     summary: Confirme l'enrôlement et délivre les codes de secours
+ *     description: |
+ *       Valide un premier code produit par le moyen enrôlé. En cas de succès,
+ *       renvoie les 8 codes de secours **en clair, une seule fois** : la base
+ *       n'en conserve que le haché. À afficher à l'utilisateur immédiatement.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code]
+ *             properties:
+ *               code: { type: string }
+ *     responses:
+ *       200: { description: "Enrôlement confirmé, codes de secours renvoyés" }
+ *       400: { description: "Code invalide, ou enrôlement déjà confirmé" }
+ */
+router.post('/:id/tfa/enroll/confirm', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    const resultat = await confirmerEnrolement(req.params.id, req.body?.code);
+    if (!resultat.ok) throw httpError(400, resultat.erreur, 'Code invalide.');
+    return resultat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/challenge:
+ *   post:
+ *     tags: [Users]
+ *     summary: Envoie un code par SMS
+ *     description: |
+ *       Deux envois consécutifs sont espacés d'une minute (`trop_tot` renvoie le
+ *       nombre de secondes à attendre). Le code n'est stocké que haché.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "SMS envoyé (numéro masqué)" }
+ *       429: { description: "Renvoi trop rapproché" }
+ */
+router.post('/:id/tfa/challenge', handleResponse(async (req, res) => {
+    exigerAccesTfa(req);
+    const resultat = await envoyerCodeSms(req.params.id);
+    if (!resultat.ok) {
+        if (resultat.erreur === 'trop_tot') {
+            res.status(429);
+            throw httpError(429, 'trop_tot', `Merci de patienter ${resultat.attendre} secondes.`);
+        }
+        throw httpError(400, resultat.erreur, "Impossible d'envoyer le code par SMS.");
+    }
+    return resultat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/verify:
+ *   post:
+ *     tags: [Users]
+ *     summary: Vérifie un code 2FA
+ *     description: |
+ *       Accepte un code TOTP, un code reçu par SMS ou un code de secours à usage
+ *       unique. Après 5 échecs consécutifs, le compte est verrouillé 15 minutes
+ *       (`erreur: "bloque"`) — c'est ce qui rend un code à 6 chiffres non
+ *       énumérable.
+ *
+ *       `confier: true` enregistre l'appareil pour 30 jours et renvoie le jeton
+ *       à déposer en cookie. La base n'en garde que le haché : le cookie n'est
+ *       pas forgeable.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code]
+ *             properties:
+ *               code:    { type: string }
+ *               confier: { type: boolean }
+ *               libelle: { type: string, description: "User-agent, pour identifier l'appareil" }
+ *               ip:      { type: string }
+ *     responses:
+ *       200: { description: "Code validé" }
+ *       400: { description: "Code invalide" }
+ *       429: { description: "Compte temporairement verrouillé" }
+ */
+router.post('/:id/tfa/verify', handleResponse(async (req, res) => {
+    exigerAccesTfa(req);
+
+    const resultat = await verifierCode(req.params.id, req.body?.code);
+    if (!resultat.ok) {
+        const status = resultat.erreur === 'bloque' ? 429 : 400;
+        res.status(status);
+        throw httpError(status, resultat.erreur, resultat.erreur === 'bloque'
+            ? 'Trop de tentatives : réessayez plus tard.'
+            : 'Code invalide.');
+    }
+
+    if (req.body?.confier) {
+        resultat.appareil = await confierAppareil(req.params.id, {
+            libelle: req.body?.libelle,
+            ip: req.body?.ip,
+        });
+    }
+
+    return resultat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/device:
+ *   post:
+ *     tags: [Users]
+ *     summary: Vérifie un jeton d'appareil de confiance
+ *     description: |
+ *       Dit si le jeton porté par le cookie du SSO dispense ce compte de saisir
+ *       un code. Marque l'appareil comme utilisé et purge les jetons expirés.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [jeton]
+ *             properties:
+ *               jeton: { type: string }
+ *     responses:
+ *       200: { description: "{ confiance: boolean }" }
+ */
+router.post('/:id/tfa/device', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    return { confiance: await appareilDeConfiance(req.params.id, req.body?.jeton) };
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/codes:
+ *   post:
+ *     tags: [Users]
+ *     summary: Régénère les codes de secours
+ *     description: |
+ *       Renvoie 8 nouveaux codes en clair (une seule fois) et invalide les
+ *       précédents.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "Nouveaux codes de secours" }
+ */
+router.post('/:id/tfa/codes', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    return { codesSecours: await genererCodesSecours(req.params.id) };
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Réinitialise l'authentification forte d'un compte
+ *     description: |
+ *       Perte de téléphone : efface le secret, les codes de secours et les
+ *       appareils de confiance. L'utilisateur devra se ré-enrôler à sa prochaine
+ *       connexion. Réservé au SSO et aux ultra admins.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "2FA réinitialisée" }
+ *       403: { description: Réservé au SSO et aux ultra admins }
+ */
+router.delete('/:id/tfa', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    return await reinitialiserTfa(req.params.id);
+}));
+
+/**
+ * @openapi
+ * /users/{id}/tfa/devices:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Révoque tous les appareils de confiance d'un compte
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "{ revoques: N }" }
+ */
+router.delete('/:id/tfa/devices', handleResponse(async (req) => {
+    exigerAccesTfa(req);
+    return { revoques: await revoquerAppareils(req.params.id) };
 }));
 
 /**
