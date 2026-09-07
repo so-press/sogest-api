@@ -68,7 +68,7 @@ async function envoyerSmsBrevo(destinataire, contenu) {
         body: JSON.stringify({
             type: 'transactional',
             unicodeEnabled: false,
-            sender: process.env.SMS_SENDER || 'SOPRESS',
+            sender: (process.env.SMS_SENDER || '').trim() || 'SOPRESS',
             recipient: destinataire,
             content: contenu,
             tag: 'tfa, sogest',
@@ -181,6 +181,12 @@ async function ovhServiceSms() {
 async function envoyerSmsOvh(destinataire, contenu) {
     const service = await ovhServiceSms();
 
+    // Émetteur alphanumérique (« SOPRESS ») seulement s'il est DÉCLARÉ chez OVH,
+    // qui refuse l'envoi sinon. `SMS_SENDER` vide bascule sur un numéro court
+    // fourni par OVH : moins reconnaissable, mais utilisable sans démarche
+    // préalable — ce qui permet d'ouvrir le canal sans attendre la validation.
+    const emetteur = (process.env.SMS_SENDER || '').trim();
+
     const reponse = await ovhRequete('POST', `/sms/${encodeURIComponent(service)}/jobs`, {
         charset: 'UTF-8',
         coding: '7bit',
@@ -190,8 +196,7 @@ async function envoyerSmsOvh(destinataire, contenu) {
         noStopClause: true,
         priority: 'high',
         receivers: [destinataire],
-        sender: process.env.SMS_SENDER || 'SOPRESS',
-        senderForResponse: false,
+        ...(emetteur ? { sender: emetteur, senderForResponse: false } : { senderForResponse: true }),
         validityPeriod: 2880,
     });
 
