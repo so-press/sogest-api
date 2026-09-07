@@ -146,6 +146,37 @@ orphelins, les activités dont `date_bouclage` tombe dans la période de parutio
 Le champ `rapprochement` vaut `numero`, `dates` ou `null`, et `activites` est
 toujours un tableau (un numéro peut porter plusieurs activités).
 
+### Authentification forte (2FA)
+
+`inc/rh/tfa.js` est la **seule source de vérité** de l'authentification forte
+des comptes sogest, au même titre que `getUserCapabilities` : la règle appartient
+à sogest et n'est jamais dupliquée dans le SSO.
+
+```
+2FA exigée si  ultra admin                          (jamais désactivable)
+           ou  link `tfa` = 'oui'
+           ou  (link absent et option FORCER_TFA)
+2FA levée  si  link `tfa` = 'non'                   (et pas ultra admin)
+```
+
+Le matériel secret ne sort jamais de l'API : secret TOTP chiffré AES-256-GCM
+(`TFA_ENCRYPTION_KEY`), code SMS et codes de secours stockés hachés, jeton
+d'appareil de confiance haché. Le SSO (`sso/lib/tfa.php`) ne fait qu'appeler
+`/users/{id}/tfa/*` — il ne voit ni secret ni code.
+
+Deux facteurs : TOTP (RFC 6238, fenêtre ±1 pas, anti-rejeu par mémorisation du
+pas consommé) et SMS via `BREVO_SMS_API_KEY`, clé **dédiée aux SMS** distincte
+de celle des e-mails. Huit codes de secours à usage unique sont délivrés à
+l'enrôlement, et cinq échecs consécutifs verrouillent le compte 15 minutes.
+
+Tables : `users_tfa`, `users_tfa_codes`, `users_tfa_appareils` (`sql/users_tfa.sql`).
+
+**`TFA_ENCRYPTION_KEY` est critique** : sans elle, aucun enrôlement n'est
+possible, donc aucun ultra admin ne peut se connecter (le SSO refuse plutôt que
+de laisser passer). Elle doit être posée AVANT tout déploiement, être différente
+par environnement, et ne jamais changer une fois des comptes enrôlés — les
+secrets deviendraient illisibles.
+
 ### File upload
 
 `POST /upload` (JWT required) uploads files to S3-compatible storage. File types are validated against `config.json → allowedFileTypes`. Uploading a file that already exists returns HTTP 409.
