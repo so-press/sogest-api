@@ -394,17 +394,30 @@ export async function envoyerCodeSms(userId) {
         `Votre code de connexion SO PRESS est ${code}. Il expire dans ${SMS_TTL / 60} minutes.`
     );
 
-    return envoye ? { ok: true, telephone: masquerTelephone(telephone) } : { ok: false, erreur: 'envoi_impossible' };
+    if (!envoye) {
+        // L'envoi a échoué : on efface le code ET l'horodatage, sinon
+        // l'utilisateur resterait bridé une minute pour un SMS jamais reçu.
+        await db('users_tfa').where('user_id', userId)
+            .update({ sms_code_hash: null, sms_expire_le: null, sms_envoye_le: null });
+        return { ok: false, erreur: 'envoi_impossible' };
+    }
+
+    return { ok: true, telephone: masquerTelephone(telephone) };
 }
 
 /**
- * Envoi SMS transactionnel via Brevo. La clé vient de l'environnement
- * (`BREVO_API_KEY`) — surtout pas en dur dans le code.
+ * Envoi SMS transactionnel via Brevo.
+ *
+ * La clé est DÉDIÉE aux SMS (`BREVO_SMS_API_KEY`), distincte de celle des
+ * e-mails : les SMS sont facturés à l'unité, les isoler permet d'en suivre la
+ * consommation et de révoquer l'une sans couper l'autre. Pas de repli sur la
+ * clé e-mail — un repli enverrait des SMS facturés sans que personne ne le
+ * voie. Et surtout pas de clé en dur dans le code.
  */
 async function envoyerSmsBrevo(destinataire, contenu) {
-    const cle = process.env.BREVO_API_KEY;
+    const cle = process.env.BREVO_SMS_API_KEY;
     if (!cle) {
-        console.error('[tfa] BREVO_API_KEY non configurée : SMS non envoyé');
+        console.error('[tfa] BREVO_SMS_API_KEY non configurée : SMS non envoyé');
         return false;
     }
 
