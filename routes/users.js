@@ -416,6 +416,18 @@ router.post('/:id/tfa/enroll/confirm', handleResponse(async (req) => {
     exigerAccesTfa(req);
     const resultat = await confirmerEnrolement(req.params.id, req.body?.code);
     if (!resultat.ok) throw httpError(400, resultat.erreur, 'Code invalide.');
+
+    // Le code qui vient d'être saisi prouve la possession du second facteur au
+    // même titre que celui de /tfa/verify : l'appelant peut donc demander que
+    // l'appareil soit retenu dès l'enrôlement, plutôt que d'exiger un code de
+    // plus à la connexion qui suit immédiatement.
+    if (req.body?.confier) {
+        resultat.appareil = await confierAppareil(req.params.id, {
+            libelle: req.body?.libelle,
+            ip: req.body?.ip,
+        });
+    }
+
     return resultat;
 }));
 
