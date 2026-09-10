@@ -478,7 +478,13 @@ function normaliserCodeSecours(code) {
  */
 export async function envoyerCodeSms(userId) {
     const telephone = await telephoneDuCompte(userId);
-    if (!telephone) return { ok: false, erreur: 'pas_de_telephone' };
+    if (!telephone) {
+        // Sortie muette autrement : un compte sans mobile exploitable produit le
+        // même écran d'échec qu'un refus du fournisseur, et rien ne les sépare
+        // dans les journaux.
+        console.error(`[sms] compte ${userId} : aucun mobile exploitable au profil`);
+        return { ok: false, erreur: 'pas_de_telephone' };
+    }
 
     const ligne = await ligneTfa(userId);
     if (ligne?.sms_envoye_le) {
@@ -496,12 +502,13 @@ export async function envoyerCodeSms(userId) {
         sms_envoye_le: new Date(),
     }).onConflict('user_id').merge(['sms_code_hash', 'sms_expire_le', 'sms_envoye_le']);
 
-    const envoye = (await envoyerSms(
+    const envoi = await envoyerSms(
         telephone,
         `Votre code de connexion SO PRESS est ${code}. Il expire dans ${SMS_TTL / 60} minutes.`
-    )).ok;
+    );
 
-    if (!envoye) {
+    if (!envoi.ok) {
+        console.error(`[sms] compte ${userId} : envoi refusé (${envoi.erreur || 'sans motif'})`);
         // L'envoi a échoué : on efface le code ET l'horodatage, sinon
         // l'utilisateur resterait bridé une minute pour un SMS jamais reçu.
         await db('users_tfa').where('user_id', userId)
