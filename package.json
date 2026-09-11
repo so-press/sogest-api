@@ -26,6 +26,7 @@
     "libphonenumber-js": "^1.13.12",
     "multer": "^2.0.2",
     "mysql2": "^3.14.1",
+    "qrcode": "^1.5.4",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

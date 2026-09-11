@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
+import QRCode from 'qrcode';
 import { db } from '../../db.js';
 import { getOption } from '../core/options.js';
 import { envoyerSms } from '../core/sms.js';
@@ -354,6 +355,8 @@ export async function demarrerEnrolement(userId, methode, telephoneSaisi = null)
         echecs: 0, bloque_jusqua: null, telephone: null,
     };
     let otpauth = null;
+    let qr = null;
+    let secretLisible = null;
 
     if (methode === 'app') {
         const secret = base32Encode(crypto.randomBytes(20));
@@ -361,6 +364,12 @@ export async function demarrerEnrolement(userId, methode, telephoneSaisi = null)
 
         const label = encodeURIComponent(`SO PRESS:${user.email}`);
         otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=SO%20PRESS&algorithm=SHA1&digits=${TOTP_CHIFFRES}&period=${TOTP_PAS}`;
+
+        // Le QR code et la clé de saisie manuelle sont produits ici : l'appelant
+        // n'a qu'à les afficher, sans bibliothèque QR ni analyse de l'URI de son
+        // côté. Le SVG n'a pas de prologue XML et s'insère tel quel dans du HTML.
+        qr = await QRCode.toString(otpauth, { type: 'svg', margin: 1, width: 200, errorCorrectionLevel: 'M' });
+        secretLisible = secret.match(/.{1,4}/g).join(' ');
     } else {
         ligne.secret = null;
 
@@ -396,7 +405,7 @@ export async function demarrerEnrolement(userId, methode, telephoneSaisi = null)
         }
     }
 
-    return { methode, otpauth, telephone: envoi?.telephone ?? etat.telephone };
+    return { methode, otpauth, qr, secret: secretLisible, telephone: envoi?.telephone ?? etat.telephone };
 }
 
 /**

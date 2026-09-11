@@ -352,8 +352,10 @@ router.get('/:id/tfa', handleResponse(async (req) => {
  *     tags: [Users]
  *     summary: Démarre un enrôlement 2FA
  *     description: |
- *       Pour `app`, renvoie l'URI `otpauth://` que l'appelant transforme en QR
- *       code. Pour `sms`, envoie immédiatement un premier code.
+ *       Pour `app`, renvoie l'URI `otpauth://`, le QR code correspondant
+ *       (`qr`, SVG inline prêt à afficher) et la clé à saisir à la main
+ *       (`secret`, par groupes de quatre). Pour `sms`, envoie immédiatement un
+ *       premier code.
  *
  *       L'enrôlement n'est effectif qu'après `POST /tfa/enroll/confirm` : un
  *       parcours abandonné ne verrouille jamais un compte.
