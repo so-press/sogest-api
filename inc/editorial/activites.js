@@ -1,6 +1,7 @@
 import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 import { urlExists } from '../core/utils.js';
+import { saveToHistorique } from '../systeme/historique.js';
 
 const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
 
@@ -187,4 +188,197 @@ export async function getDerniereActivitePourSupport(supportId) {
   if (!row) return null;
 
   return { ...row, couverture: await resolveCouvertureUrl(row.id) };
+}
+
+/**
+ * Champs « données de base » d'une activité, seuls modifiables par l'API.
+ *
+ * Tout ce qui relève de la saisie des piges (`piges`, `total`), du workflow de
+ * clôture (`cloture*`, `okredac`), du blocage collaboratif (`blocage*`) ou de
+ * la fusion de doublons (`fusion_id`) en est volontairement exclu : ces champs
+ * sont posés par sogest au fil de ses propres traitements, et les écrire de
+ * l'extérieur désynchroniserait les deux.
+ *
+ * `libelle` et `support` n'y figurent pas non plus : ils sont dérivés (cf.
+ * `libelleActivite()`), comme dans sogest.
+ */
+const CHAMPS_MODIFIABLES = [
+  'support_id',
+  'edition_id',
+  'numero',
+  'periode',
+  'projet',
+  'version',
+  'categorie',
+  'support_mag',
+  'date_bouclage',
+  'description',
+  'liens',
+  'public',
+  'indisponible',
+];
+
+/**
+ * Libellé affiché d'une activité — port de `libelle_activite()` (sogest,
+ * `include/auto/activites.inc.php`), variante texte brut.
+ *
+ * @param {Object} activite Données de l'activité (dont `support`, le nom)
+ * @param {Object|null} support Ligne `supports` (pour `type_support`)
+ * @returns {string}
+ */
+function libelleActivite(activite, support) {
+  const supportNom = activite.support || 'Pas de support';
+  const periode = activite.numero ? `#${activite.numero}` : (activite.periode || '');
+
+  let libelle;
+  if (Number(activite.support_mag)) {
+    libelle = `Supplément du ${supportNom}` + (activite.numero ? ` n° ${activite.numero}` : '');
+  } else if (support?.type_support === 'projets') {
+    libelle = `${activite.projet || ''} [${supportNom}]`;
+  } else {
+    libelle = supportNom + (periode ? ` [ ${periode} ]` : '');
+  }
+
+  if (activite.version) libelle += ` ${activite.version}`;
+  if (Number(activite.indisponible)) libelle += ' [Activite Indisponible]';
+
+  return libelle;
+}
+
+/**
+ * Récupère une activité sans filtrer sur `indisponible` (contrairement à
+ * `getActivite()`) : une activité archivée reste modifiable et consultable
+ * par son propriétaire. Seule la corbeille est exclue.
+ * @param {number} id
+ * @returns {Promise<Object|null>}
+ */
+export async function getActiviteBrute(id) {
+  if (isNaN(id)) throw new Error('Invalid activite ID');
+  return (await db('activites').where('id', id).where('trash', '<>', 1).first()) ?? null;
+}
+
+/** Ligne `supports` brute (sans filtre), pour le nom et le `type_support`. */
+async function getSupportRow(supportId) {
+  if (!supportId) return null;
+  return (await db('supports').where('id', supportId).first()) ?? null;
+}
+
+/** Ne retient de `data` que les champs modifiables effectivement fournis. */
+function champsFournis(data) {
+  const out = {};
+  for (const champ of CHAMPS_MODIFIABLES) {
+    if (data?.[champ] !== undefined) out[champ] = data[champ];
+  }
+  return out;
+}
+
+/**
+ * Crée une activité.
+ *
+ * `support` (le nom) et `libelle` sont dérivés du support, comme le fait
+ * `insertActivite()` côté sogest ; l'auteur renseigne `createur`/`createur_id`.
+ *
+ * @param {Object} data Champs de `CHAMPS_MODIFIABLES`
+ * @param {{id?: number, nomComplet?: string}|null} [auteur]
+ * @returns {Promise<Object>} L'activité créée
+ * @throws {Error} `err.code = 'support_inconnu'` si `support_id` ne résout pas
+ */
+export async function createActivite(data, auteur = null) {
+  const champs = champsFournis(data);
+
+  const support = await getSupportRow(champs.support_id);
+  if (!support) {
+    const err = new Error('Support inconnu');
+    err.code = 'support_inconnu';
+    throw err;
+  }
+
+  const row = {
+    ...champs,
+    support: support.nom,
+    createur: auteur?.nomComplet || 'api',
+    createur_id: auteur?.id || 0,
+    date_creation: new Date(),
+  };
+  row.libelle = libelleActivite(row, support);
+
+  const [id] = await db('activites').insert(row);
+  return await getActiviteBrute(id);
+}
+
+/**
+ * Met à jour les données de base d'une activité.
+ *
+ * L'état précédent part dans `historique` avant écriture. Le libellé est
+ * recalculé sur l'activité fusionnée (valeurs actuelles + modifications), et
+ * un changement de `indisponible` se répercute sur `piges.hidden`, comme
+ * `archiverActivite()` côté sogest.
+ *
+ * @param {number} id
+ * @param {Object} data Champs de `CHAMPS_MODIFIABLES`
+ * @param {{id?: number, nomComplet?: string}|null} [auteur]
+ * @returns {Promise<Object|null>} L'activité à jour, ou `null` si introuvable
+ * @throws {Error} `err.code = 'support_inconnu'` / `'aucun_champ'`
+ */
+export async function updateActivite(id, data, auteur = null) {
+  const actuelle = await getActiviteBrute(id);
+  if (!actuelle) return null;
+
+  const champs = champsFournis(data);
+  if (Object.keys(champs).length === 0) {
+    const err = new Error('Aucun champ à mettre à jour');
+    err.code = 'aucun_champ';
+    throw err;
+  }
+
+  if (champs.support_id !== undefined) {
+    const support = await getSupportRow(champs.support_id);
+    if (!support) {
+      const err = new Error('Support inconnu');
+      err.code = 'support_inconnu';
+      throw err;
+    }
+    champs.support = support.nom;
+  }
+
+  const fusion = { ...actuelle, ...champs };
+  champs.libelle = libelleActivite(fusion, await getSupportRow(fusion.support_id));
+  champs.modificateur = auteur?.nomComplet || 'api';
+  champs.modificateur_id = auteur?.id || 0;
+  champs.modifications = Number(actuelle.modifications || 0) + 1;
+
+  await saveToHistorique('activites', id, auteur);
+  await db('activites').where('id', id).update(champs);
+
+  // Archivage / désarchivage : les piges suivent l'activité.
+  if (champs.indisponible !== undefined && Number(champs.indisponible) !== Number(actuelle.indisponible)) {
+    await db('piges').where('activite_id', id).update({ hidden: Number(champs.indisponible) ? 1 : 0 });
+  }
+
+  return await getActiviteBrute(id);
+}
+
+/**
+ * Met une activité à la corbeille — et ses piges avec elle, comme
+ * `effacerActivite()` côté sogest. Rien n'est supprimé en base.
+ *
+ * @param {number} id
+ * @param {{id?: number, nomComplet?: string}|null} [auteur]
+ * @returns {Promise<boolean>} `false` si l'activité n'existait pas (ou était
+ *   déjà en corbeille)
+ */
+export async function trashActivite(id, auteur = null) {
+  const actuelle = await getActiviteBrute(id);
+  if (!actuelle) return false;
+
+  await saveToHistorique('activites', id, auteur);
+  await db('activites').where('id', id).update({
+    trash: 1,
+    modificateur: auteur?.nomComplet || 'api',
+    modificateur_id: auteur?.id || 0,
+    modifications: Number(actuelle.modifications || 0) + 1,
+  });
+  await db('piges').where('activite_id', id).update({ trash: 1 });
+
+  return true;
 }

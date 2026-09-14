@@ -5,11 +5,12 @@ import { getRequest } from '../core/request.js';
  *
  * @param {string} tableName Nom de la table à sauvegarder
  * @param {number} rowId ID de la ligne à récupérer
- * @param {Object} user Utilisateur courant ({ id, nom })
+ * @param {Object|null} [auteur] Auteur de la modification ({ id, nomComplet }).
+ *   Par défaut l'utilisateur de la requête courante — qui n'existe pas sous
+ *   jeton applicatif statique : l'écriture est alors tracée sans auteur nommé.
  */
-export async function saveToHistorique(tableName, rowId) {
-    const req = getRequest();
-    const { user } = req;
+export async function saveToHistorique(tableName, rowId, auteur = undefined) {
+    const user = auteur !== undefined ? auteur : getRequest()?.user;
     const currentData = await db(tableName).where({ id: rowId }).first();
     if (!currentData) return;
 
@@ -17,8 +18,8 @@ export async function saveToHistorique(tableName, rowId) {
         table: tableName,
         cle: rowId,
         donnee: JSON.stringify(currentData),
-        user: user.nomComplet,
-        user_id: user.id
+        user: user?.nomComplet || 'api',
+        user_id: user?.id || 0
     });
 }
 

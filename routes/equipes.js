@@ -5,7 +5,7 @@ import {
 } from '../inc/rh/equipes.js';
 import { getUser } from '../inc/rh/users.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
-import { isAdminRequest, isEquipeInTokenScope } from '../inc/core/access.js';
+import { isAdminRequest, isEquipeInTokenScope, resolveAuteur } from '../inc/core/access.js';
 
 const router = express.Router();
 export const routePath = '/equipes';
@@ -150,32 +150,6 @@ router.get('/:equipeId/membres', handleResponse(async (req, res) => {
 
   return await getMembresEquipe(equipe.id);
 }));
-
-/**
- * Résout l'auteur d'une écriture sur les membres.
- *
- * - JWT : l'utilisateur du token, sans discussion.
- * - Jeton applicatif statique : l'appelant peut désigner la personne connectée
- *   de son côté via `auteur_user_id` (corps) ou l'en-tête `X-Auteur-User-Id`.
- *   La valeur accepte l'id `users` sogest ou le `sub` SSO `spc-sogest_{id}`.
- *
- * Un auteur inconnu n'est pas une erreur : l'écriture est simplement tracée
- * sans auteur nommé.
- *
- * @param {import('express').Request} req
- * @returns {Promise<Object|null>}
- */
-async function resolveAuteur(req) {
-  if (req.user) return req.user;
-
-  const raw = req.body?.auteur_user_id ?? req.headers['x-auteur-user-id'];
-  if (raw === undefined || raw === null || raw === '') return null;
-
-  const id = parseInt(String(raw).replace(/^spc-sogest_/, ''), 10);
-  if (isNaN(id)) return null;
-
-  return (await getUser(id)) || null;
-}
 
 /**
  * Vérifie que la requête a le droit de modifier la composition de cette équipe.

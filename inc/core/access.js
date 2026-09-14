@@ -1,3 +1,4 @@
+import { getUser } from '../rh/users.js';
 import fs from 'fs';
 
 const config = JSON.parse(fs.readFileSync('./config/config.json'));
@@ -67,4 +68,30 @@ export function isEquipeInTokenScope(req, equipeId) {
   const scope = tokenScopes[req.tokenName];
   if (!scope || !Array.isArray(scope.equipes)) return true;
   return scope.equipes.map(Number).includes(Number(equipeId));
+}
+
+/**
+ * Résout l'auteur d'une écriture.
+ *
+ * - JWT : l'utilisateur du token, sans discussion.
+ * - Jeton applicatif statique : l'appelant peut désigner la personne connectée
+ *   de son côté via `auteur_user_id` (corps) ou l'en-tête `X-Auteur-User-Id`.
+ *   La valeur accepte l'id `users` sogest ou le `sub` SSO `spc-sogest_{id}`.
+ *
+ * Un auteur inconnu n'est pas une erreur : l'écriture est simplement tracée
+ * sans auteur nommé.
+ *
+ * @param {import('express').Request} req
+ * @returns {Promise<Object|null>}
+ */
+export async function resolveAuteur(req) {
+  if (req.user) return req.user;
+
+  const raw = req.body?.auteur_user_id ?? req.headers['x-auteur-user-id'];
+  if (raw === undefined || raw === null || raw === '') return null;
+
+  const id = parseInt(String(raw).replace(/^spc-sogest_/, ''), 10);
+  if (isNaN(id)) return null;
+
+  return (await getUser(id)) || null;
 }
