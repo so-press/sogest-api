@@ -1,4 +1,26 @@
 import { db } from '../../db.js';
+import { sogestUrl } from '../core/sogest.js';
+
+/**
+ * URL du PDF d'une édition sur SOGEST. C'est là que va le chercher
+ * `visionneuse.php`, et le seul endroit de l'API qui connaisse ce chemin :
+ * les activités s'y adressent aussi, via leur `edition_id`.
+ *
+ * L'existence du fichier n'est pas vérifiée — ce serait une requête HTTP par
+ * édition sur une liste.
+ *
+ * @param {number|null} editionId
+ * @returns {string|null} `null` sans édition
+ */
+export function pdfEditionUrl(editionId) {
+  return editionId ? sogestUrl(`uploads/editions/${editionId}.pdf`) : null;
+}
+
+/** Ajoute à une édition l'URL complète de son PDF. */
+function avecPdf(edition) {
+  if (!edition) return edition;
+  return { ...edition, pdf: pdfEditionUrl(edition.id) };
+}
 
 const SORTABLE = new Set(['publication', 'modification', 'numero', 'id']);
 
@@ -22,7 +44,7 @@ export async function listEditions({
   const column = SORTABLE.has(String(sort)) ? sort : 'publication';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-  return await query.orderBy(column, direction);
+  return (await query.orderBy(column, direction)).map(avecPdf);
 }
 
 /**
@@ -32,7 +54,7 @@ export async function listEditions({
  */
 export async function getEdition(id) {
   if (isNaN(id)) throw new Error('Invalid edition ID');
-  return (await db('editions').where('id', id).where('trash', '<>', 1).first()) ?? null;
+  return avecPdf(await db('editions').where('id', id).where('trash', '<>', 1).first()) ?? null;
 }
 
 /**

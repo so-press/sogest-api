@@ -2,8 +2,35 @@ import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 import { urlExists } from '../core/utils.js';
 import { saveToHistorique } from '../systeme/historique.js';
+import { pdfEditionUrl } from './editions.js';
 
 const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
+
+/**
+ * Ajoute à une activité ses deux URL de lecture :
+ *
+ * - `liseuse` — la visionneuse sogest (`visionneuse.php?id_activite=`), qui
+ *   feuillette le PDF de l'édition rattachée. Elle contrôle elle-même l'accès
+ *   (`User::hasAccessToPdf`) : l'URL est toujours servie, pas le contenu.
+ * - `pdf` — le PDF de l'édition rattachée, `uploads/editions/{edition_id}.pdf`,
+ *   là où la visionneuse va le chercher. `null` sans édition rattachée.
+ *
+ * Les deux se déduisent de l'activité, aucun aller-retour HTTP : l'existence
+ * du fichier PDF n'est pas vérifiée (ce serait une requête par activité sur
+ * une liste), contrairement à `couverture`.
+ *
+ * @param {Object|null} activite
+ * @returns {Object|null}
+ */
+function avecLiensLecture(activite) {
+  if (!activite) return activite;
+
+  return {
+    ...activite,
+    liseuse: sogestUrl('visionneuse.php', { id_activite: activite.id }),
+    pdf: pdfEditionUrl(activite.edition_id),
+  };
+}
 
 /**
  * Liste des activités sélectionnables (hors corbeille / indisponibles), triées.
@@ -47,7 +74,7 @@ export async function listActivites({ sort = 'periode', order = 'desc', personne
   const column = SORTABLE.has(String(sort)) ? sort : 'periode';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-  return await query.orderBy(column, direction);
+  return (await query.orderBy(column, direction)).map(avecLiensLecture);
 }
 
 /**
@@ -57,7 +84,7 @@ export async function listActivites({ sort = 'periode', order = 'desc', personne
  */
 export async function getActivite(id) {
   if (isNaN(id)) throw new Error('Invalid activite ID');
-  return (await db('activites')
+  return avecLiensLecture(await db('activites')
     .where('id', id)
     .where('trash', '<>', 1)
     .where('indisponible', '<>', 1)
@@ -187,7 +214,7 @@ export async function getDerniereActivitePourSupport(supportId) {
 
   if (!row) return null;
 
-  return { ...row, couverture: await resolveCouvertureUrl(row.id) };
+  return { ...avecLiensLecture(row), couverture: await resolveCouvertureUrl(row.id) };
 }
 
 /**
@@ -254,7 +281,7 @@ function libelleActivite(activite, support) {
  */
 export async function getActiviteBrute(id) {
   if (isNaN(id)) throw new Error('Invalid activite ID');
-  return (await db('activites').where('id', id).where('trash', '<>', 1).first()) ?? null;
+  return avecLiensLecture(await db('activites').where('id', id).where('trash', '<>', 1).first()) ?? null;
 }
 
 /** Ligne `supports` brute (sans filtre), pour le nom et le `type_support`. */

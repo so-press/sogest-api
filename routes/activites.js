@@ -23,6 +23,11 @@ export const routePath = '/activites';
  *       statique) voit toutes les activités. Un utilisateur standard ne voit que
  *       les activités ayant au moins une pige liée à son `personne_id`, ou qu'il
  *       a lui-même créées.
+ *
+ *       Chaque activité porte ses deux URL de lecture : `liseuse` (la
+ *       visionneuse sogest, qui contrôle elle-même l'accès au contenu) et `pdf`
+ *       (le PDF de l'édition rattachée, `null` s'il n'y en a pas). Aucune des
+ *       deux n'est vérifiée : ce sont des URL déduites de l'activité.
  *     parameters:
  *       - in: query
  *         name: sort
@@ -68,6 +73,10 @@ router.get('/', handleResponse(async (req) => {
  *       Un utilisateur standard ne peut accéder qu'aux activités sur lesquelles il
  *       a une pige, ou qu'il a créées (sinon `403`). Les admins / token statique
  *       accèdent à tout.
+ *
+ *       La réponse porte `liseuse` (URL de la visionneuse sogest, qui contrôle
+ *       elle-même l'accès au contenu) et `pdf` (URL du PDF de l'édition
+ *       rattachée, `null` s'il n'y en a pas).
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
