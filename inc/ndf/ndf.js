@@ -501,6 +501,28 @@ export async function updateDepense(id, data = {}) {
 }
 
 /**
+ * Mémorise, dans `meta.detection_ia`, le justificatif sur lequel une détection
+ * IA a été faite. Marqueur de sogest (`marquerDetectionIa`) : son interface s'en
+ * sert pour ne pas relancer la détection automatique sur un justificatif déjà
+ * lu. Comme il porte l'URL du justificatif, remplacer le fichier remet
+ * naturellement la détection à faire.
+ *
+ * @param {number} id
+ * @returns {Promise<void>}
+ */
+export async function marquerDetectionIa(id) {
+  const current = await db('depenses').where('id', id).first();
+  if (!current) return;
+
+  let meta = {};
+  if (current.meta) { try { meta = JSON.parse(current.meta); } catch { meta = {}; } }
+  if (!meta || typeof meta !== 'object') meta = {};
+  meta.detection_ia = current.justificatif || '';
+
+  await db('depenses').where('id', id).update({ meta: JSON.stringify(meta) });
+}
+
+/**
  * Suppression logique d'une dépense puis recalcul de la ndf parente.
  * @param {number} id
  * @returns {Promise<boolean>}

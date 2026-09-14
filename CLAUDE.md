@@ -23,6 +23,9 @@ Copy `.env` from a template (not committed). Required variables:
 - `NO_PASSWORD_NEEDED` — set to any truthy value to bypass bcrypt check (dev only)
 - `SSO_ISSUER`, `SSO_JWKS_URI` — OpenID Connect provider used by `POST /login/sso`
 - `MAHALO_URL`, `MAHALO_TOKEN` — API Mahalo Grabber (calendriers de parution), voir plus bas
+- `ASK_URL`, `PDF_TO_IMAGE_URL` — services maison utilisés par la lecture des
+  justificatifs de notes de frais (défauts : `https://tools.sopress.dev/ask/` et
+  `https://tools.sopress.dev/pdf-to-image/v2/`), voir plus bas
 - `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
@@ -109,11 +112,11 @@ Two clients coexist:
 
 Each domain has a helper file that encapsulates the DB queries. Routes import from these helpers rather than querying the DB directly. Helpers are grouped into thematic subfolders mirroring the OpenAPI `x-tagGroups` and the Bruno collection:
 
-- `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`
+- `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`, `ask.js`, `pdf.js`
 - `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
 - `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `absences_historique.js`, `contrats.js`
 - `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`, `mahalo.js`, `calendrier.js`
-- `inc/ndf/` — `ndf.js`, `devises.js`
+- `inc/ndf/` — `ndf.js`, `devises.js`, `detection.js`
 - `inc/systeme/` — `documents.js`, `historique.js`, `notifications.js`
 
 Cross-folder imports are normal (e.g. `inc/ndf/ndf.js` pulls `../editorial/supports.js`, `../rh/personnes.js`, `./devises.js`). The `db` client is imported as `../../db.js` from any helper.
@@ -145,6 +148,28 @@ item : d'abord `activites.numero` = `noParution`, puis, pour les items restés
 orphelins, les activités dont `date_bouclage` tombe dans la période de parution.
 Le champ `rapprochement` vaut `numero`, `dates` ou `null`, et `activites` est
 toujours un tableau (un numéro peut porter plusieurs activités).
+
+### Lecture des justificatifs de notes de frais
+
+`POST /ndf/depenses/{id}/detection` soumet le justificatif d'une dépense à
+l'API « ask » (`inc/core/ask.js`) et renvoie ce qui a pu en être lu : `nature`,
+`etablissement`, `ht`, `tva`, `ttc`, `devise`. `inc/ndf/detection.js` porte les
+prompts et les règles de sogest (`include/auto/ndf.inc.php`), mot pour mot :
+
+- **le modèle ne fait que lire.** Le montant de TVA ne lui est jamais demandé ;
+  il est calculé à partir de ce qui est imprimé (HT + TTC, ou l'un des deux avec
+  le taux). Un TTC inférieur au HT fait abandonner les trois montants ;
+- un justificatif **PDF est d'abord rendu en image** (`inc/core/pdf.js`), c'est
+  sa première page qui est lue ;
+- la devise lue est validée contre les devises connues de l'application.
+
+La dépense n'est complétée que sur ses **champs vides** — `0.00` comptant comme
+vide pour `ht`/`tva`/`ttc` — : une saisie de l'utilisateur n'est jamais écrasée.
+`meta.detection_ia` mémorise le justificatif lu, marqueur que sogest utilise
+pour ne pas relancer sa propre détection.
+
+Un échec du service (indisponible, délai dépassé, refus du modèle) ne fait
+jamais échouer la route : le champ concerné vaut simplement `null`.
 
 ### Authentification forte (2FA)
 

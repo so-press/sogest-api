@@ -11,10 +11,12 @@ import {
   createDepense,
   updateDepense,
   deleteDepense,
+  marquerDetectionIa,
   ndfAppartientA,
   ndfEstEditable,
 } from '../inc/ndf/ndf.js';
-import { handleResponse } from '../inc/core/response.js';
+import { detecterDepuisJustificatif, champsAAppliquer } from '../inc/ndf/detection.js';
+import { handleResponse, httpError } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/ndf';
@@ -411,6 +413,104 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
   }
   await deleteDepense(depenseId);
   return { deleted: true, id: depenseId };
+}));
+
+/**
+ * @openapi
+ * /ndf/depenses/{depenseId}/detection:
+ *   post:
+ *     tags: [Notes de frais]
+ *     summary: Lit le justificatif d'une dépense et en extrait les données
+ *     description: |
+ *       Soumet le justificatif de la dépense à l'API « ask » et renvoie tout ce
+ *       qui a pu en être lu : `nature`, `etablissement`, `ht`, `tva`, `ttc`,
+ *       `devise` (chacun `null` s'il n'a pas pu l'être). Un justificatif PDF est
+ *       d'abord rendu en image, c'est sa première page qui est lue.
+ *
+ *       Les prompts sont ceux de sogest, aux mêmes règles : **le modèle ne fait
+ *       que lire**. Il ne lui est jamais demandé le montant de TVA — celui-ci
+ *       est calculé à partir de ce qui est imprimé sur le justificatif (HT et
+ *       TTC, ou l'un des deux avec le taux). Un TTC inférieur au HT fait
+ *       abandonner les trois montants plutôt que d'en déduire une TVA négative.
+ *
+ *       **Mise à jour de la dépense** : seuls les champs actuellement vides sont
+ *       remplis, une valeur déjà saisie n'est jamais écrasée. Pour `ht`, `tva`
+ *       et `ttc`, la valeur par défaut `0.00` compte comme vide. `applique`
+ *       liste les colonnes effectivement écrites — le reste de la détection est
+ *       renvoyé quand même, au client d'en faire ce qu'il veut.
+ *
+ *       Note : `devise` vaut toujours au moins `EUR` sur une dépense, elle n'est
+ *       donc en pratique jamais remplie par cette route.
+ *
+ *       La dépense doit appartenir à l'utilisateur connecté, sa note de frais
+ *       être modifiable, et la dépense porter un justificatif.
+ *     security:
+ *       - jwtAuth: []
+ *     parameters:
+ *       - { in: path, name: depenseId, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Données lues sur le justificatif
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 depense_id:    { type: integer }
+ *                 nature:        { type: string, nullable: true, description: "Nature de la dépense — écrite dans `libelle`" }
+ *                 etablissement: { type: string, nullable: true }
+ *                 ht:            { type: string, nullable: true }
+ *                 tva:           { type: string, nullable: true, description: "Calculé, jamais lu tel quel" }
+ *                 ttc:           { type: string, nullable: true }
+ *                 devise:        { type: string, nullable: true, description: "Code ISO 4217, validé contre les devises connues" }
+ *                 applique:      { type: array, items: { type: string }, description: "Colonnes de la dépense effectivement mises à jour" }
+ *                 depense:       { type: object, description: "La dépense à jour" }
+ *       400: { description: "La dépense n'a pas de justificatif (`justificatif_absent`)" }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: La ndf n'appartient pas à l'utilisateur connecté }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409: { description: La saisie de la ndf est verrouillée (état non modifiable) }
+ */
+router.post('/depenses/:depenseId/detection', handleResponse(async (req, res) => {
+  const depenseId = parseInt(req.params.depenseId, 10);
+  const depense = await getDepense(depenseId);
+  if (!depense) {
+    res.status(404);
+    throw new Error('Depense not found');
+  }
+
+  const ndf = await getNdf(depense.ndf_id);
+  if (!ndf) {
+    res.status(404);
+    throw new Error('Ndf not found');
+  }
+  if (!ndfAppartientA(ndf, req.user)) {
+    res.status(403);
+    throw new Error('This ndf does not belong to the current user');
+  }
+  assertEditable(ndf, res);
+
+  if (!depense.justificatif) {
+    throw httpError(400, 'justificatif_absent', 'Cette dépense n\'a pas de justificatif');
+  }
+
+  const detecte = await detecterDepuisJustificatif(depense.justificatif);
+  const aEcrire = champsAAppliquer(depense, detecte);
+
+  // Le marqueur est posé même sans rien à écrire : la lecture a bien eu lieu,
+  // inutile que sogest la relance sur ce justificatif.
+  await marquerDetectionIa(depenseId);
+
+  const aJour = Object.keys(aEcrire).length
+    ? await updateDepense(depenseId, aEcrire)
+    : await getDepense(depenseId);
+
+  return {
+    depense_id: depenseId,
+    ...detecte,
+    applique: Object.keys(aEcrire),
+    depense: aJour,
+  };
 }));
 
 export default router;
