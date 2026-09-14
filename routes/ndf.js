@@ -427,11 +427,15 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *       `devise` (chacun `null` s'il n'a pas pu l'être). Un justificatif PDF est
  *       d'abord rendu en image, c'est sa première page qui est lue.
  *
- *       Les prompts sont ceux de sogest, aux mêmes règles : **le modèle ne fait
- *       que lire**. Il ne lui est jamais demandé le montant de TVA — celui-ci
- *       est calculé à partir de ce qui est imprimé sur le justificatif (HT et
- *       TTC, ou l'un des deux avec le taux). Un TTC inférieur au HT fait
- *       abandonner les trois montants plutôt que d'en déduire une TVA négative.
+ *       Les règles sont celles de sogest : **le modèle ne fait que lire**. Il ne
+ *       lui est jamais demandé le montant de TVA — celui-ci est calculé à partir
+ *       de ce qui est imprimé sur le justificatif (HT et TTC, ou l'un des deux
+ *       avec le taux). Un TTC inférieur au HT fait abandonner les trois montants
+ *       plutôt que d'en déduire une TVA négative.
+ *
+ *       Les six champs sont lus en une seule requête au service. Une seconde,
+ *       ciblée sur le seul taux de TVA, n'a lieu que s'il manque un montant que
+ *       ce taux permettrait de reconstituer. Compter ~1 à 4 s.
  *
  *       **Mise à jour de la dépense** : seuls les champs actuellement vides sont
  *       remplis, une valeur déjà saisie n'est jamais écrasée. Pour `ht`, `tva`

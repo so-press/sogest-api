@@ -153,8 +153,8 @@ toujours un tableau (un numéro peut porter plusieurs activités).
 
 `POST /ndf/depenses/{id}/detection` soumet le justificatif d'une dépense à
 l'API « ask » (`inc/core/ask.js`) et renvoie ce qui a pu en être lu : `nature`,
-`etablissement`, `ht`, `tva`, `ttc`, `devise`. `inc/ndf/detection.js` porte les
-prompts et les règles de sogest (`include/auto/ndf.inc.php`), mot pour mot :
+`etablissement`, `ht`, `tva`, `ttc`, `devise`. `inc/ndf/detection.js` porte le
+prompt et les règles de sogest (`include/auto/ndf.inc.php`) :
 
 - **le modèle ne fait que lire.** Le montant de TVA ne lui est jamais demandé ;
   il est calculé à partir de ce qui est imprimé (HT + TTC, ou l'un des deux avec
@@ -162,6 +162,12 @@ prompts et les règles de sogest (`include/auto/ndf.inc.php`), mot pour mot :
 - un justificatif **PDF est d'abord rendu en image** (`inc/core/pdf.js`), c'est
   sa première page qui est lue ;
 - la devise lue est validée contre les devises connues de l'application.
+
+Les six champs sont lus en **une seule requête**, là où sogest en fait une par
+champ : mesuré sur douze justificatifs réels, à montants identiques et à latence
+égale (les appels unitaires étant parallèles), pour quatre fois moins de
+requêtes. Une seconde lecture, ciblée sur le seul taux de TVA, n'a lieu que s'il
+manque un montant que ce taux permettrait de reconstituer.
 
 La dépense n'est complétée que sur ses **champs vides** — `0.00` comptant comme
 vide pour `ht`/`tva`/`ttc` — : une saisie de l'utilisateur n'est jamais écrasée.

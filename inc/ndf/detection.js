@@ -1,33 +1,45 @@
 /**
  * Détection, par l'API « ask », des données d'une dépense à partir de son
- * justificatif. Port de la détection IA de sogest (include/auto/ndf.inc.php :
- * promptsDetectionJustif, detecterChampJustif, detecterMontantsJustif) — les
- * prompts sont repris mot pour mot, pour que les deux applications lisent les
- * justificatifs de la même façon.
- *
- * Deux règles de sogest sont structurantes :
+ * justificatif. Reprend la détection IA de sogest (include/auto/ndf.inc.php :
+ * promptsDetectionJustif, detecterChampJustif, detecterMontantsJustif) et ses
+ * deux règles structurantes :
  *
  * 1. **Le modèle ne fait que lire.** Le montant de TVA ne lui est jamais
  *    demandé : il est calculé ici à partir de ce qui est réellement imprimé
  *    sur le justificatif (HT + TTC, ou l'un des deux avec le taux).
  * 2. **Un PDF est converti en image** avant d'être soumis : c'est la première
  *    page qui est lue.
+ *
+ * Là où sogest fait un appel par champ, les six champs sont ici lus en **une
+ * seule requête**. Mesuré sur douze justificatifs réels (images et PDF), à
+ * montants identiques : même latence — les appels unitaires étant parallèles,
+ * elle est celle du plus lent — pour quatre fois moins de requêtes au service.
+ * Le prompt est explicite sur ce qu'est la « nature » d'une dépense et sur la
+ * déduction de la devise depuis le symbole monétaire : sans ces deux
+ * précisions, la lecture groupée rendait des natures inexploitables (« course »,
+ * « SP95E10 ») et manquait des devises.
  */
 
 import { ask, askJson } from '../core/ask.js';
 import { pdfEnImages } from '../core/pdf.js';
 import { getAllDevises } from './devises.js';
 
-/** Prompts de sogest (promptsDetectionJustif), repris à l'identique. */
+/**
+ * Les deux prompts. `tout` porte, fondues en une seule demande, les consignes
+ * des prompts unitaires de sogest (promptsDetectionJustif) ; `taux_tva` est le
+ * sien, mot pour mot, pour la seconde lecture de rattrapage.
+ */
 const PROMPTS = {
-  libelle:
-    'Essaye de détecter quelle est la nature de la dépense décrite par cette image. La nature de la dépense permet de savoir pour quelle raison la dépense a été faite',
-  etablissement:
-    "Essaye de détecter le nom de l'établissement/site internet/prestataire/vendeur auprès de qui a eu lieu la dépense décrite par ce justificatif.",
-  devise:
-    'Dans quelle devise (monnaie) la dépense décrite par ce justificatif a-t-elle été payée ? Réponds uniquement par le code ISO 4217 à trois lettres de cette devise, par exemple EUR, USD ou GBP.',
-  montants:
-    'Relève, dans ce justificatif, uniquement ce qui y est explicitement imprimé : le montant total hors taxes (ht), le montant total toutes taxes comprises (ttc, c\'est à dire la somme réellement payée) et le taux de TVA appliqué en pourcentage (taux_tva). Ne calcule rien et ne devine rien : mets null pour toute valeur qui n\'est pas lisible telle quelle sur le document. Si plusieurs taux de TVA apparaissent, mets null pour taux_tva. Si le document indique explicitement une absence de TVA (par exemple "TVA non applicable"), mets 0 pour taux_tva. Réponds uniquement par un objet JSON de la forme {"ht":123.45,"ttc":148.14,"taux_tva":20}, avec des nombres (point décimal, ni symbole monétaire ni séparateur de milliers) ou null.',
+  tout:
+    'Lis ce justificatif de dépense et renvoie ce que tu y trouves :\n'
+    + '- "nature" : la nature de la dépense, c\'est à dire la raison pour laquelle elle a été faite, en quelques mots — par exemple "Repas au restaurant", "Achat de carburant", "Course en taxi", "Nuit d\'hôtel". Ce n\'est ni le nom du vendeur, ni la référence d\'un article imprimée sur le ticket ;\n'
+    + '- "etablissement" : le nom de l\'établissement/site internet/prestataire/vendeur auprès de qui elle a eu lieu ;\n'
+    + '- "devise" : le code ISO 4217 à trois lettres de la devise dans laquelle elle a été payée, au besoin déduit du symbole monétaire imprimé en regard des montants (€ = EUR, $ = USD, £ = GBP) ;\n'
+    + '- "ht" : le montant total hors taxes ;\n'
+    + '- "ttc" : le montant total toutes taxes comprises, c\'est à dire la somme réellement payée ;\n'
+    + '- "taux_tva" : le taux de TVA appliqué, en pourcentage.\n'
+    + 'Pour ht, ttc et taux_tva, relève uniquement ce qui est explicitement imprimé sur le document : ne calcule rien et ne devine rien, mets null pour toute valeur qui n\'est pas lisible telle quelle. Si plusieurs taux de TVA apparaissent, mets null pour taux_tva. Si le document indique explicitement une absence de TVA (par exemple "TVA non applicable"), mets 0 pour taux_tva. Les nombres s\'écrivent avec un point décimal, sans symbole monétaire ni séparateur de milliers.\n'
+    + 'Réponds uniquement par un objet JSON de la forme {"nature":"...","etablissement":"...","devise":"EUR","ht":123.45,"ttc":148.14,"taux_tva":20}, avec null pour tout champ que tu ne peux pas déterminer.',
   taux_tva:
     'Quel est le taux de TVA appliqué à la dépense décrite par ce justificatif ? Réponds uniquement par le pourcentage sous forme de nombre, par exemple 20 ou 5.5. Si le justificatif ne mentionne aucune TVA, réponds 0. Si plusieurs taux différents y figurent, commence ta réponse par "ERREUR:".',
 };
@@ -155,11 +167,10 @@ async function imageDuJustificatif(justificatif) {
 /**
  * Lit un justificatif et en extrait tout ce qui est inférable.
  *
- * Les champs textuels font chacun leur appel, comme dans sogest (un prompt par
- * champ y donne de meilleurs résultats qu'un prompt fourre-tout) ; les trois
- * montants tiennent en un seul appel. Tous partent en parallèle. Un second
- * appel, ciblé sur le seul taux de TVA, n'a lieu que s'il manque un montant
- * que ce taux permettrait de reconstituer.
+ * Une seule requête suffit pour les six champs. Une seconde lecture, ciblée sur
+ * le seul taux de TVA, n'a lieu que s'il manque un montant que ce taux
+ * permettrait de reconstituer (rattrapage de `detecterMontantsJustif()`) : HT et
+ * TTC lus tous les deux, la TVA en découle et le taux ne sert à rien.
  *
  * @param {string} justificatif URL du justificatif
  * @returns {Promise<{nature: string|null, etablissement: string|null, devise: string|null,
@@ -170,19 +181,13 @@ export async function detecterDepuisJustificatif(justificatif) {
   const image = await imageDuJustificatif(justificatif);
   if (!image) return vide();
 
-  const [nature, etablissement, deviseLue, montantsLus] = await Promise.all([
-    ask(PROMPTS.libelle, { image }),
-    ask(PROMPTS.etablissement, { image }),
-    ask(PROMPTS.devise, { image }),
-    askJson(PROMPTS.montants, { image }),
-  ]);
+  const lu = await askJson(PROMPTS.tout, { image, tokens: 500 });
+  if (!lu) return vide();
 
-  const ht = nombreDetecte(montantsLus?.ht);
-  const ttc = nombreDetecte(montantsLus?.ttc);
-  let taux = tauxTvaDetecte(montantsLus?.taux_tva ?? montantsLus?.taux);
+  const ht = nombreDetecte(lu.ht);
+  const ttc = nombreDetecte(lu.ttc);
+  let taux = tauxTvaDetecte(lu.taux_tva ?? lu.taux);
 
-  // HT et TTC suffisent : la TVA en découle. Sinon, et s'il y a un montant à
-  // compléter, seconde lecture ciblée sur le taux.
   if ((ht === null || ttc === null) && taux === null && (ht !== null || ttc !== null)) {
     taux = tauxTvaDetecte(await ask(PROMPTS.taux_tva, { image }));
   }
@@ -190,9 +195,9 @@ export async function detecterDepuisJustificatif(justificatif) {
   const montants = resoudreMontants(ht, ttc, taux);
 
   return {
-    nature: nature || null,
-    etablissement: etablissement || null,
-    devise: (await normaliserDevise(deviseLue)) || null,
+    nature: lu.nature ? String(lu.nature).trim() : null,
+    etablissement: lu.etablissement ? String(lu.etablissement).trim() : null,
+    devise: (await normaliserDevise(lu.devise)) || null,
     ht: montants.ht ?? null,
     tva: montants.tva ?? null,
     ttc: montants.ttc ?? null,
