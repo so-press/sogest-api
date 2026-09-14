@@ -1,10 +1,13 @@
 import express from 'express';
-import { getSupport, getSupportBrut, getSupportBySlug, getSupports, getSupportsBruts, renderSupportLogo } from '../inc/editorial/supports.js';
+import {
+  getSupport, getSupportBrut, getSupportBySlug, getSupports, getSupportsBruts, renderSupportLogo,
+  createSupport, updateSupport, archiverSupport,
+} from '../inc/editorial/supports.js';
 import { getCalendrier } from '../inc/editorial/calendrier.js';
 import { listActivites, withCouvertures } from '../inc/editorial/activites.js';
 import { getUserSupportIds } from '../inc/rh/users.js';
-import { isAdminRequest } from '../inc/core/access.js';
-import { handleResponse } from '../inc/core/response.js';
+import { isAdminRequest, resolveAuteur } from '../inc/core/access.js';
+import { handleResponse, httpError } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/supports';
@@ -457,6 +460,201 @@ router.get('/:supportId', handleResponse(async (req, res) => {
     }
   }
   return support;
+}));
+
+/**
+ * Le référentiel des supports est transverse : seuls les admins (JWT
+ * `level=admin`/`ultra_admin`) et les jetons applicatifs statiques l'écrivent.
+ * Un utilisateur standard n'en voit déjà que sa propre liste (`users.supports`).
+ * @param {import('express').Request} req
+ */
+function exigerAdmin(req) {
+  if (!isAdminRequest(req)) {
+    throw httpError(403, 'non_habilite', 'Réservé aux administrateurs');
+  }
+}
+
+/** Traduit les erreurs métier des helpers en réponses 400. */
+function en400(err) {
+  if (['nom_requis', 'type_support_invalide', 'aucun_champ'].includes(err.code)) {
+    return httpError(400, err.code, err.message);
+  }
+  return err;
+}
+
+/**
+ * @openapi
+ * /supports:
+ *   post:
+ *     tags: [Supports]
+ *     summary: Crée un support
+ *     description: |
+ *       Réservé aux admins / jeton statique.
+ *
+ *       Le `slug` est dérivé du `nom` s'il n'est pas fourni, et rendu unique
+ *       dans tous les cas (suffixe `-2`, `-3`…) : l'API résout les supports par
+ *       slug, un doublon en rendrait un inatteignable.
+ *
+ *       `liens`, `contenus` et `comptes_admin` s'envoient sous la forme que
+ *       l'API renvoie en lecture (tableaux) ; la sérialisation vers le format
+ *       stocké (JSON / CSV) est faite côté serveur.
+ *
+ *       Le logo n'est pas une donnée de base : il vit sous forme de fichier
+ *       (`uploads/files/supports/{id}/`) et ne se pose pas par cette route.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nom]
+ *             properties:
+ *               nom:                    { type: string }
+ *               slug:                   { type: string, description: "Déduit du nom si absent" }
+ *               type_support:           { type: string, enum: [magazine, projets, autre] }
+ *               ordre:                  { type: integer, description: "Tri des listes, décroissant" }
+ *               description:            { type: string }
+ *               description_offres:     { type: string }
+ *               recurrence:             { type: integer, enum: [0, 1] }
+ *               societe:                { type: integer, enum: [0, 1], description: "Ce support est une société" }
+ *               portail:                { type: integer, enum: [0, 1] }
+ *               contenus:               { type: array, items: { type: integer } }
+ *               comptes_admin:          { type: array, items: { type: string } }
+ *               liens:                  { type: array, items: { type: object } }
+ *               source_externe:         { type: string }
+ *               source_externe_article: { type: string }
+ *               noms_alternatifs:       { type: string, description: "Noms du support chez des partenaires, séparés par des virgules" }
+ *               couleur_dominante:      { type: string }
+ *               adresse_pennylane:      { type: string }
+ *               indisponible:           { type: integer, enum: [0, 1], description: "Support archivé" }
+ *               auteur_user_id:         { type: string, nullable: true, description: "Auteur de la création (jeton statique uniquement)" }
+ *     responses:
+ *       201: { description: Support créé, content: { application/json: { schema: { type: object } } } }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Réservé aux administrateurs }
+ */
+router.post('/', handleResponse(async (req, res) => {
+  exigerAdmin(req);
+  let support;
+  try {
+    support = await createSupport(req.body || {}, await resolveAuteur(req));
+  } catch (err) {
+    throw en400(err);
+  }
+  res.status(201);
+  return support;
+}));
+
+/**
+ * @openapi
+ * /supports/{id}:
+ *   put:
+ *     tags: [Supports]
+ *     summary: Met à jour les données de base d'un support
+ *     description: |
+ *       Mise à jour partielle, réservée aux admins / jeton statique. Mêmes
+ *       champs que `POST /supports`.
+ *
+ *       **Deux cascades**, reprises de sogest :
+ *       - changer le `nom` le répercute sur `tarifs.support` et sur les
+ *         activités du support (`support`, et le `libelle` qui en dérive) ;
+ *       - basculer `indisponible` archive (ou désarchive) les tarifs et les
+ *         activités du support, et masque (ou réaffiche) leurs piges.
+ *
+ *       sogest suffixe en plus le nom de « [Support Indisponible] » à
+ *       l'archivage : c'est un artifice d'affichage de son interface, l'API ne
+ *       l'écrit pas — le nom canonique est recopié dans les tarifs, les
+ *       activités et leurs libellés.
+ *
+ *       L'identifiant est ici **numérique** (pas de slug) : le slug peut changer
+ *       dans la même requête.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nom:                    { type: string }
+ *               slug:                   { type: string }
+ *               type_support:           { type: string, enum: [magazine, projets, autre] }
+ *               ordre:                  { type: integer }
+ *               description:            { type: string }
+ *               description_offres:     { type: string }
+ *               recurrence:             { type: integer, enum: [0, 1] }
+ *               societe:                { type: integer, enum: [0, 1] }
+ *               portail:                { type: integer, enum: [0, 1] }
+ *               contenus:               { type: array, items: { type: integer } }
+ *               comptes_admin:          { type: array, items: { type: string } }
+ *               liens:                  { type: array, items: { type: object } }
+ *               source_externe:         { type: string }
+ *               source_externe_article: { type: string }
+ *               noms_alternatifs:       { type: string }
+ *               couleur_dominante:      { type: string }
+ *               adresse_pennylane:      { type: string }
+ *               indisponible:           { type: integer, enum: [0, 1] }
+ *               auteur_user_id:         { type: string, nullable: true, description: "Auteur de la modification (jeton statique uniquement)" }
+ *     responses:
+ *       200: { description: Support à jour, content: { application/json: { schema: { type: object } } } }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Réservé aux administrateurs }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.put('/:id(\\d+)', handleResponse(async (req) => {
+  exigerAdmin(req);
+  let support;
+  try {
+    support = await updateSupport(parseInt(req.params.id, 10), req.body || {}, await resolveAuteur(req));
+  } catch (err) {
+    throw en400(err);
+  }
+  if (!support) throw httpError(404, 'support_inconnu', 'Support introuvable');
+  return support;
+}));
+
+/**
+ * @openapi
+ * /supports/{id}:
+ *   delete:
+ *     tags: [Supports]
+ *     summary: Archive un support
+ *     description: |
+ *       **Archivage** (`indisponible = 1`), et non mise à la corbeille : c'est
+ *       la seule suppression que connaisse sogest pour un support (bouton
+ *       « Archiver ce support »). Un support reste référencé par ses activités,
+ *       ses tarifs, les piges et la liste `users.supports` — le mettre à la
+ *       corbeille laisserait toutes ces références dans le vide.
+ *
+ *       Les cascades sont celles de `PUT /supports/{id}` : tarifs et activités
+ *       archivés, piges masquées. Restauration par `PUT /supports/{id}` avec
+ *       `{ "indisponible": 0 }`.
+ *
+ *       Réservé aux admins / jeton statique.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Support archivé
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:           { type: integer }
+ *                 indisponible: { type: integer, enum: [1] }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: Réservé aux administrateurs }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.delete('/:id(\\d+)', handleResponse(async (req) => {
+  exigerAdmin(req);
+  const support = await archiverSupport(parseInt(req.params.id, 10), 1, await resolveAuteur(req));
+  if (!support) throw httpError(404, 'support_inconnu', 'Support introuvable');
+  return { id: support.id, indisponible: 1 };
 }));
 
 export default router;

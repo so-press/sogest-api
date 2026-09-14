@@ -382,3 +382,43 @@ export async function trashActivite(id, auteur = null) {
 
   return true;
 }
+
+/**
+ * Répercute sur les activités d'un support un changement de nom et/ou
+ * d'archivage — pendant de ce que fait `actions/edit_support.php` côté sogest
+ * (`activites.support` suit `supports.nom`, `activites.indisponible` suit
+ * `supports.indisponible`).
+ *
+ * Le libellé étant construit à partir du nom du support et de l'archivage, il
+ * est recalculé activité par activité. sogest, lui, recopie sur toutes les
+ * activités le libellé de la première : on ne reproduit pas ce bug.
+ *
+ * Ces écritures en cascade ne sont pas historisées : ce n'est pas une
+ * modification des activités mais la conséquence mécanique d'une modification
+ * du support, elle-même historisée.
+ *
+ * @param {number} supportId
+ * @param {{nom?: string, indisponible?: number}} changement
+ * @returns {Promise<number>} nombre d'activités touchées
+ */
+export async function rafraichirActivitesDuSupport(supportId, { nom, indisponible } = {}) {
+  if (nom === undefined && indisponible === undefined) return 0;
+
+  const support = await db('supports').where('id', supportId).first();
+  const activites = await db('activites').where('support_id', supportId).where('trash', '<>', 1);
+
+  for (const activite of activites) {
+    const patch = {};
+    if (nom !== undefined) patch.support = nom;
+    if (indisponible !== undefined) patch.indisponible = Number(indisponible) ? 1 : 0;
+
+    patch.libelle = libelleActivite({ ...activite, ...patch }, support);
+    await db('activites').where('id', activite.id).update(patch);
+
+    if (indisponible !== undefined && Number(indisponible) !== Number(activite.indisponible)) {
+      await db('piges').where('activite_id', activite.id).update({ hidden: Number(indisponible) ? 1 : 0 });
+    }
+  }
+
+  return activites.length;
+}
