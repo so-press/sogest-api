@@ -46,6 +46,8 @@ Each file in `routes/` must export:
 - `default` — an Express Router instance
 - `routePath` — string, the base URL path (e.g. `'/personnes'`)
 - `requireAuth` — boolean (optional); if true, the route additionally requires a valid JWT (not just a static token)
+- `publicRouter` — optional Router mounted **before** `authMiddleware`: its routes need no token at all (logos de supports)
+- `tokenRouter` — optional Router mounted after `authMiddleware` but **without** `jwtOnlyMiddleware`: the exception that lets a few routes of a `requireAuth` module accept a static token (`POST /ndf/depenses/:id/detection`, appelée par sogest)
 
 `server.js` iterates over a `routes` object and mounts each router (applying `jwtOnlyMiddleware` first when `requireAuth` is true). When adding a new route file, you must import it at the top of `server.js` and add it to that `routes` object — the directory is not auto-scanned.
 
@@ -153,7 +155,7 @@ toujours un tableau (un numéro peut porter plusieurs activités).
 
 `POST /ndf/depenses/{id}/detection` soumet le justificatif d'une dépense à
 l'API « ask » (`inc/core/ask.js`) et renvoie ce qui a pu en être lu : `nature`,
-`etablissement`, `ht`, `tva`, `ttc`, `devise`. `inc/ndf/detection.js` porte le
+`etablissement`, `date_depense`, `ht`, `tva`, `ttc`, `devise`. `inc/ndf/detection.js` porte le
 prompt et les règles de sogest (`include/auto/ndf.inc.php`) :
 
 - **le modèle ne fait que lire.** Le montant de TVA ne lui est jamais demandé ;
@@ -174,8 +176,20 @@ vide pour `ht`/`tva`/`ttc` — : une saisie de l'utilisateur n'est jamais écras
 `meta.detection_ia` mémorise le justificatif lu, marqueur que sogest utilise
 pour ne pas relancer sa propre détection.
 
+`appliquer=0` n'écrit rien : la route ne fait que lire. C'est ainsi que sogest
+l'appelle — **c'est la seule implémentation de la détection**, sogest ne lit plus
+les justificatifs lui-même (`detecterChampJustif()` / `detecterMontantsJustif()`
+y sont devenues de simples appels à cette route).
+
 Un échec du service (indisponible, délai dépassé, refus du modèle) ne fait
 jamais échouer la route : le champ concerné vaut simplement `null`.
+
+Cette route est la seule de `/ndf` ouverte au **jeton applicatif statique**, que
+sogest doit alors accompagner de l'utilisateur pour le compte de qui il agit
+(`auteur_user_id` ou `X-Auteur-User-Id`) : le contrôle de propriété de la note de
+frais porte sur cet utilisateur, il n'est jamais contourné. Le mécanisme est un
+`tokenRouter` exporté par le module de route, pendant du `publicRouter` — cf.
+« Route registration ».
 
 ### Authentification forte (2FA)
 

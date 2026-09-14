@@ -37,9 +37,10 @@ const PROMPTS = {
     + '- "devise" : le code ISO 4217 à trois lettres de la devise dans laquelle elle a été payée, au besoin déduit du symbole monétaire imprimé en regard des montants (€ = EUR, $ = USD, £ = GBP) ;\n'
     + '- "ht" : le montant total hors taxes ;\n'
     + '- "ttc" : le montant total toutes taxes comprises, c\'est à dire la somme réellement payée ;\n'
-    + '- "taux_tva" : le taux de TVA appliqué, en pourcentage.\n'
+    + '- "taux_tva" : le taux de TVA appliqué, en pourcentage ;\n'
+    + '- "date_depense" : la date de la dépense (date de la facture, du ticket ou du paiement), au format AAAA-MM-JJ.\n'
     + 'Pour ht, ttc et taux_tva, relève uniquement ce qui est explicitement imprimé sur le document : ne calcule rien et ne devine rien, mets null pour toute valeur qui n\'est pas lisible telle quelle. Si plusieurs taux de TVA apparaissent, mets null pour taux_tva. Si le document indique explicitement une absence de TVA (par exemple "TVA non applicable"), mets 0 pour taux_tva. Les nombres s\'écrivent avec un point décimal, sans symbole monétaire ni séparateur de milliers.\n'
-    + 'Réponds uniquement par un objet JSON de la forme {"nature":"...","etablissement":"...","devise":"EUR","ht":123.45,"ttc":148.14,"taux_tva":20}, avec null pour tout champ que tu ne peux pas déterminer.',
+    + 'Réponds uniquement par un objet JSON de la forme {"nature":"...","etablissement":"...","devise":"EUR","ht":123.45,"ttc":148.14,"taux_tva":20,"date_depense":"2026-09-14"}, avec null pour tout champ que tu ne peux pas déterminer.',
   taux_tva:
     'Quel est le taux de TVA appliqué à la dépense décrite par ce justificatif ? Réponds uniquement par le pourcentage sous forme de nombre, par exemple 20 ou 5.5. Si le justificatif ne mentionne aucune TVA, réponds 0. Si plusieurs taux différents y figurent, commence ta réponse par "ERREUR:".',
 };
@@ -147,6 +148,40 @@ async function normaliserDevise(valeur) {
 }
 
 /**
+ * Date lue par le modèle, ramenée au format `AAAA-MM-JJ` et vérifiée comme
+ * date réelle. Port de `normaliserValeurDetectee('date_depense', …)`.
+ * @param {string} valeur
+ * @returns {string} `''` si la date est inexploitable
+ */
+function normaliserDate(valeur) {
+  const texte = String(valeur || '').trim();
+  if (!texte) return '';
+
+  let annee;
+  let mois;
+  let jour;
+
+  const iso = texte.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  const fr = texte.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (iso) {
+    [, annee, mois, jour] = iso;
+  } else if (fr) {
+    [, jour, mois, annee] = fr;
+    if (annee.length === 2) annee = `20${annee}`;
+  } else {
+    return '';
+  }
+
+  const date = new Date(Date.UTC(+annee, +mois - 1, +jour));
+  // Une date inexistante (31 février…) est réécrite par Date : on la rejette.
+  if (date.getUTCFullYear() !== +annee || date.getUTCMonth() !== +mois - 1 || date.getUTCDate() !== +jour) {
+    return '';
+  }
+
+  return `${String(annee).padStart(4, '0')}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
+}
+
+/**
  * Image à soumettre au modèle pour un justificatif : le fichier lui-même, ou
  * la première page rendue en image si c'est un PDF. Port de
  * `urlImageJustifPourIa()`.
@@ -174,8 +209,8 @@ async function imageDuJustificatif(justificatif) {
  *
  * @param {string} justificatif URL du justificatif
  * @returns {Promise<{nature: string|null, etablissement: string|null, devise: string|null,
- *   ht: string|null, tva: string|null, ttc: string|null}>} Chaque champ vaut
- *   `null` s'il n'a pas pu être lu.
+ *   date_depense: string|null, ht: string|null, tva: string|null, ttc: string|null}>}
+ *   Chaque champ vaut `null` s'il n'a pas pu être lu.
  */
 export async function detecterDepuisJustificatif(justificatif) {
   const image = await imageDuJustificatif(justificatif);
@@ -198,6 +233,7 @@ export async function detecterDepuisJustificatif(justificatif) {
     nature: lu.nature ? String(lu.nature).trim() : null,
     etablissement: lu.etablissement ? String(lu.etablissement).trim() : null,
     devise: (await normaliserDevise(lu.devise)) || null,
+    date_depense: normaliserDate(lu.date_depense) || null,
     ht: montants.ht ?? null,
     tva: montants.tva ?? null,
     ttc: montants.ttc ?? null,
@@ -206,7 +242,7 @@ export async function detecterDepuisJustificatif(justificatif) {
 
 /** Résultat de détection entièrement vide. */
 function vide() {
-  return { nature: null, etablissement: null, devise: null, ht: null, tva: null, ttc: null };
+  return { nature: null, etablissement: null, devise: null, date_depense: null, ht: null, tva: null, ttc: null };
 }
 
 /** Correspondance champ détecté → colonne de `depenses`. */
@@ -214,6 +250,7 @@ const COLONNES = {
   nature: 'libelle',
   etablissement: 'etablissement',
   devise: 'devise',
+  date_depense: 'date_depense',
   ht: 'ht',
   tva: 'tva',
   ttc: 'ttc',

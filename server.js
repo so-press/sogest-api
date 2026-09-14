@@ -158,6 +158,13 @@ for (const file in routes) {
       console.warn(`⚠️ No routePath specified in ${file}`);
       continue;
     }
+    // Un module `requireAuth` peut exposer un `tokenRouter` : ses routes sont
+    // montées sans `jwtOnlyMiddleware`, donc ouvertes aussi au jeton applicatif
+    // statique. Monté avant le routeur principal, qui sinon les capterait.
+    if (route.tokenRouter) {
+      app.use(routePath, route.tokenRouter);
+      console.log(`🔑 Token router mounted on ${routePath} (${file})`);
+    }
     if (requireAuth) {
       app.use(routePath, jwtOnlyMiddleware, router);
     } else {

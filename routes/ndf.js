@@ -16,12 +16,21 @@ import {
   ndfEstEditable,
 } from '../inc/ndf/ndf.js';
 import { detecterDepuisJustificatif, champsAAppliquer } from '../inc/ndf/detection.js';
+import { resolveAuteur } from '../inc/core/access.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
 
 const router = express.Router();
 export const routePath = '/ndf';
 // Toutes les routes nécessitent un utilisateur connecté (JWT, pas un token statique)
 export const requireAuth = true;
+
+// Exception : la lecture d'un justificatif est aussi ouverte au jeton applicatif
+// statique, pour que sogest puisse l'appeler depuis son interface (il n'a que ce
+// jeton, pas de JWT de l'utilisateur en session). Elle exige alors que
+// l'utilisateur pour le compte de qui elle travaille soit désigné — le contrôle
+// de propriété de la note de frais porte sur lui. Monté par server.js sans
+// `jwtOnlyMiddleware`.
+export const tokenRouter = express.Router();
 
 /**
  * Charge la ndf de `:id` et vérifie qu'elle appartient à l'utilisateur connecté.
@@ -423,9 +432,10 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *     summary: Lit le justificatif d'une dépense et en extrait les données
  *     description: |
  *       Soumet le justificatif de la dépense à l'API « ask » et renvoie tout ce
- *       qui a pu en être lu : `nature`, `etablissement`, `ht`, `tva`, `ttc`,
- *       `devise` (chacun `null` s'il n'a pas pu l'être). Un justificatif PDF est
- *       d'abord rendu en image, c'est sa première page qui est lue.
+ *       qui a pu en être lu : `nature`, `etablissement`, `date_depense`, `ht`,
+ *       `tva`, `ttc`, `devise` (chacun `null` s'il n'a pas pu l'être). Un
+ *       justificatif PDF est d'abord rendu en image, c'est sa première page qui
+ *       est lue.
  *
  *       Les règles sont celles de sogest : **le modèle ne fait que lire**. Il ne
  *       lui est jamais demandé le montant de TVA — celui-ci est calculé à partir
@@ -433,7 +443,7 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *       avec le taux). Un TTC inférieur au HT fait abandonner les trois montants
  *       plutôt que d'en déduire une TVA négative.
  *
- *       Les six champs sont lus en une seule requête au service. Une seconde,
+ *       Les champs sont lus en une seule requête au service. Une seconde,
  *       ciblée sur le seul taux de TVA, n'a lieu que s'il manque un montant que
  *       ce taux permettrait de reconstituer. Compter ~1 à 4 s.
  *
@@ -441,17 +451,39 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *       remplis, une valeur déjà saisie n'est jamais écrasée. Pour `ht`, `tva`
  *       et `ttc`, la valeur par défaut `0.00` compte comme vide. `applique`
  *       liste les colonnes effectivement écrites — le reste de la détection est
- *       renvoyé quand même, au client d'en faire ce qu'il veut.
+ *       renvoyé quand même, au client d'en faire ce qu'il veut. `appliquer=0`
+ *       n'écrit rien du tout : la route ne fait que lire, à l'appelant de
+ *       décider quoi en faire (c'est ainsi que sogest l'utilise, sa propre
+ *       interface décidant du sort de chaque valeur).
  *
- *       Note : `devise` vaut toujours au moins `EUR` sur une dépense, elle n'est
- *       donc en pratique jamais remplie par cette route.
+ *       Note : `devise` vaut toujours au moins `EUR` sur une dépense, et
+ *       `date_depense` est posée à la création — ni l'une ni l'autre ne sont
+ *       donc en pratique remplies par cette route.
  *
- *       La dépense doit appartenir à l'utilisateur connecté, sa note de frais
- *       être modifiable, et la dépense porter un justificatif.
+ *       **Authentification** : JWT du propriétaire de la note de frais, ou jeton
+ *       applicatif statique — celui-ci devant alors désigner l'utilisateur pour
+ *       le compte de qui il travaille (`auteur_user_id` dans le corps, ou
+ *       l'en-tête `X-Auteur-User-Id` ; id `users` sogest ou `sub` SSO). Le
+ *       contrôle de propriété porte sur cet utilisateur, jamais contourné.
+ *
+ *       La note de frais doit être modifiable et la dépense porter un
+ *       justificatif.
  *     security:
  *       - jwtAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - { in: path, name: depenseId, required: true, schema: { type: integer } }
+ *       - in: query
+ *         name: appliquer
+ *         schema: { type: boolean, default: true }
+ *         description: "`0` pour ne rien écrire sur la dépense (lecture seule)"
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               auteur_user_id: { type: string, nullable: true, description: "Utilisateur pour le compte de qui agir (jeton statique uniquement)" }
  *     responses:
  *       200:
  *         description: Données lues sur le justificatif
@@ -463,6 +495,7 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *                 depense_id:    { type: integer }
  *                 nature:        { type: string, nullable: true, description: "Nature de la dépense — écrite dans `libelle`" }
  *                 etablissement: { type: string, nullable: true }
+ *                 date_depense:  { type: string, nullable: true, format: date }
  *                 ht:            { type: string, nullable: true }
  *                 tva:           { type: string, nullable: true, description: "Calculé, jamais lu tel quel" }
  *                 ttc:           { type: string, nullable: true }
@@ -471,11 +504,19 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *                 depense:       { type: object, description: "La dépense à jour" }
  *       400: { description: "La dépense n'a pas de justificatif (`justificatif_absent`)" }
  *       401: { $ref: '#/components/responses/Unauthorized' }
- *       403: { description: La ndf n'appartient pas à l'utilisateur connecté }
+ *       403: { description: "Ndf d'un autre utilisateur, ou jeton statique sans `auteur_user_id` (`auteur_requis`)" }
  *       404: { $ref: '#/components/responses/NotFound' }
  *       409: { description: La saisie de la ndf est verrouillée (état non modifiable) }
  */
-router.post('/depenses/:depenseId/detection', handleResponse(async (req, res) => {
+tokenRouter.post('/depenses/:depenseId/detection', handleResponse(async (req, res) => {
+  // Sous JWT c'est l'utilisateur du token ; sous jeton statique, celui que
+  // l'appelant désigne. Sans utilisateur identifié, rien ne permet de vérifier
+  // à qui appartient la note de frais : on refuse.
+  const utilisateur = await resolveAuteur(req);
+  if (!utilisateur) {
+    throw httpError(403, 'auteur_requis', 'Utilisateur non désigné (auteur_user_id / X-Auteur-User-Id)');
+  }
+
   const depenseId = parseInt(req.params.depenseId, 10);
   const depense = await getDepense(depenseId);
   if (!depense) {
@@ -488,7 +529,7 @@ router.post('/depenses/:depenseId/detection', handleResponse(async (req, res) =>
     res.status(404);
     throw new Error('Ndf not found');
   }
-  if (!ndfAppartientA(ndf, req.user)) {
+  if (!ndfAppartientA(ndf, utilisateur)) {
     res.status(403);
     throw new Error('This ndf does not belong to the current user');
   }
@@ -499,11 +540,15 @@ router.post('/depenses/:depenseId/detection', handleResponse(async (req, res) =>
   }
 
   const detecte = await detecterDepuisJustificatif(depense.justificatif);
-  const aEcrire = champsAAppliquer(depense, detecte);
 
-  // Le marqueur est posé même sans rien à écrire : la lecture a bien eu lieu,
-  // inutile que sogest la relance sur ce justificatif.
-  await marquerDetectionIa(depenseId);
+  const appliquer = !['0', 'false', 'non'].includes(String(req.query.appliquer ?? '1').toLowerCase());
+  const aEcrire = appliquer ? champsAAppliquer(depense, detecte) : {};
+
+  if (appliquer) {
+    // Le marqueur est posé même sans rien à écrire : la lecture a bien eu lieu,
+    // inutile que sogest la relance sur ce justificatif.
+    await marquerDetectionIa(depenseId);
+  }
 
   const aJour = Object.keys(aEcrire).length
     ? await updateDepense(depenseId, aEcrire)
