@@ -13,6 +13,7 @@ import {
   deleteDepense,
   marquerDetectionIa,
   ndfAppartientA,
+  ndfAccessiblePar,
   ndfEstEditable,
 } from '../inc/ndf/ndf.js';
 import { detecterDepuisJustificatif, champsAAppliquer } from '../inc/ndf/detection.js';
@@ -460,6 +461,12 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *       `date_depense` est posée à la création — ni l'une ni l'autre ne sont
  *       donc en pratique remplies par cette route.
  *
+ *       **Périmètre** : la note de frais de l'utilisateur, celle d'une personne
+ *       de ses équipes gérées, ou n'importe laquelle s'il a le droit de saisir
+ *       pour un tiers (ultra admin, traitement des ndf, ou link `ndf_tiers`) —
+ *       la règle de l'écran de saisie de sogest, plus large que celle des autres
+ *       routes `/ndf`, qui s'en tiennent aux notes de frais de l'utilisateur.
+ *
  *       **Authentification** : JWT du propriétaire de la note de frais, ou jeton
  *       applicatif statique — celui-ci devant alors désigner l'utilisateur pour
  *       le compte de qui il travaille (`auteur_user_id` dans le corps, ou
@@ -504,7 +511,7 @@ router.delete('/:id/depenses/:depenseId', handleResponse(async (req, res) => {
  *                 depense:       { type: object, description: "La dépense à jour" }
  *       400: { description: "La dépense n'a pas de justificatif (`justificatif_absent`)" }
  *       401: { $ref: '#/components/responses/Unauthorized' }
- *       403: { description: "Ndf d'un autre utilisateur, ou jeton statique sans `auteur_user_id` (`auteur_requis`)" }
+ *       403: { description: "Ndf hors du périmètre de l'utilisateur, ou jeton statique sans `auteur_user_id` (`auteur_requis`)" }
  *       404: { $ref: '#/components/responses/NotFound' }
  *       409: { description: La saisie de la ndf est verrouillée (état non modifiable) }
  */
@@ -529,9 +536,11 @@ tokenRouter.post('/depenses/:depenseId/detection', handleResponse(async (req, re
     res.status(404);
     throw new Error('Ndf not found');
   }
-  if (!ndfAppartientA(ndf, utilisateur)) {
+  // Règle de l'écran de saisie de sogest, pas celle de « mes notes de frais » :
+  // un gestionnaire y travaille couramment sur la ndf de quelqu'un d'autre.
+  if (!(await ndfAccessiblePar(ndf, utilisateur))) {
     res.status(403);
-    throw new Error('This ndf does not belong to the current user');
+    throw new Error('This ndf is out of the current user perimeter');
   }
   assertEditable(ndf, res);
 

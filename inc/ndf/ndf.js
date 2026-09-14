@@ -3,6 +3,7 @@ import { db } from '../../db.js';
 import { getSupport } from '../editorial/supports.js';
 import { getPersonne } from '../rh/personnes.js';
 import { getTauxDevise } from './devises.js';
+import { getUserCapabilities } from '../rh/users.js';
 
 export const NDF_PROJET_TYPE = { PROJET: 1, ACTIVITE: 2, LIBRE: 3 };
 export const NDF_ETATS = ['brouillon', 'a-traiter', 'a-corriger', 'validee', 'payee', 'archivee', 'vide'];
@@ -170,6 +171,57 @@ export function ndfAppartientA(ndf, user) {
   if (ndf.user_id && ndf.user_id === user.id) return true;
   if (ndf.personne_id && user.personne_id && ndf.personne_id === user.personne_id) return true;
   return false;
+}
+
+/**
+ * Une personne est-elle dans le périmètre d'un utilisateur, c'est à dire
+ * membre d'une équipe qu'il gère (`lien_equipe_user.role = 'manager'`) ?
+ * Port de `getSubalternesEquipe()` (sogest, include/auto/users.inc.php), qui
+ * inclut le gérant lui-même puisqu'il est membre de ses propres équipes.
+ *
+ * @param {number} userId
+ * @param {number} personneId
+ * @returns {Promise<boolean>}
+ */
+async function personneDansPerimetre(userId, personneId) {
+  if (!userId || !personneId) return false;
+
+  const row = await db('lien_equipe_user as gerant')
+    .join('lien_equipe_user as membre', 'membre.equipe_id', 'gerant.equipe_id')
+    .join('users', 'users.id', 'membre.user_id')
+    .where('gerant.user_id', userId)
+    .where('gerant.role', 'manager')
+    .where('users.personne_id', personneId)
+    .select('users.id')
+    .first();
+
+  return !!row;
+}
+
+/**
+ * Un utilisateur peut-il travailler sur cette note de frais ?
+ *
+ * Port de la règle d'accès de `pages/saisie_ndf.php` (sogest) : la sienne, ou
+ * n'importe laquelle s'il a le droit de saisir pour un tiers
+ * (`can.saisirNdfPourTiers` = ultra admin, traitement des ndf, ou link
+ * `ndf_tiers`), ou celle d'une personne de son périmètre d'équipes.
+ *
+ * Plus large que `ndfAppartientA()`, qui régit les routes « mes notes de
+ * frais » : c'est la règle de l'écran de saisie de sogest, où un gestionnaire
+ * travaille couramment sur la note de frais de quelqu'un d'autre.
+ *
+ * @param {Object} ndf
+ * @param {{id: number, personne_id?: number}} user
+ * @returns {Promise<boolean>}
+ */
+export async function ndfAccessiblePar(ndf, user) {
+  if (!ndf || !user) return false;
+  if (ndfAppartientA(ndf, user)) return true;
+
+  const can = await getUserCapabilities(user.id);
+  if (can.saisirNdfPourTiers) return true;
+
+  return await personneDansPerimetre(user.id, ndf.personne_id);
 }
 
 /**
