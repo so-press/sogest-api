@@ -474,9 +474,15 @@ function exigerAdmin(req) {
   }
 }
 
-/** Traduit les erreurs métier des helpers en réponses 400. */
-function en400(err) {
-  if (['nom_requis', 'type_support_invalide', 'aucun_champ'].includes(err.code)) {
+/**
+ * Traduit les erreurs métier des helpers en réponses HTTP : `409` pour un slug
+ * déjà pris (conflit avec une ressource existante), `400` pour le reste.
+ * @param {Error} err
+ * @returns {Error}
+ */
+function erreurMetier(err) {
+  if (err.code === 'slug_existant') return httpError(409, err.code, err.message);
+  if (['nom_requis', 'type_support_invalide', 'slug_invalide', 'aucun_champ'].includes(err.code)) {
     return httpError(400, err.code, err.message);
   }
   return err;
@@ -491,9 +497,11 @@ function en400(err) {
  *     description: |
  *       Réservé aux admins / jeton statique.
  *
- *       Le `slug` est dérivé du `nom` s'il n'est pas fourni, et rendu unique
- *       dans tous les cas (suffixe `-2`, `-3`…) : l'API résout les supports par
- *       slug, un doublon en rendrait un inatteignable.
+ *       Le `slug` est dérivé du `nom` s'il n'est pas fourni. Dans les deux cas,
+ *       un slug déjà porté par un autre support est refusé (`409
+ *       slug_existant`) : l'API résout les supports par slug, un doublon en
+ *       rendrait un inatteignable. À l'appelant de fournir alors un `slug`
+ *       explicite.
  *
  *       `liens`, `contenus` et `comptes_admin` s'envoient sous la forme que
  *       l'API renvoie en lecture (tableaux) ; la sérialisation vers le format
@@ -533,6 +541,7 @@ function en400(err) {
  *       400: { $ref: '#/components/responses/BadRequest' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { description: Réservé aux administrateurs }
+ *       409: { description: "Slug déjà porté par un autre support (`slug_existant`)" }
  */
 router.post('/', handleResponse(async (req, res) => {
   exigerAdmin(req);
@@ -540,7 +549,7 @@ router.post('/', handleResponse(async (req, res) => {
   try {
     support = await createSupport(req.body || {}, await resolveAuteur(req));
   } catch (err) {
-    throw en400(err);
+    throw erreurMetier(err);
   }
   res.status(201);
   return support;
@@ -603,6 +612,7 @@ router.post('/', handleResponse(async (req, res) => {
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { description: Réservé aux administrateurs }
  *       404: { $ref: '#/components/responses/NotFound' }
+ *       409: { description: "Slug déjà porté par un autre support (`slug_existant`)" }
  */
 router.put('/:id(\\d+)', handleResponse(async (req) => {
   exigerAdmin(req);
@@ -610,7 +620,7 @@ router.put('/:id(\\d+)', handleResponse(async (req) => {
   try {
     support = await updateSupport(parseInt(req.params.id, 10), req.body || {}, await resolveAuteur(req));
   } catch (err) {
-    throw en400(err);
+    throw erreurMetier(err);
   }
   if (!support) throw httpError(404, 'support_inconnu', 'Support introuvable');
   return support;

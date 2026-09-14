@@ -297,24 +297,37 @@ function champsFournis(data) {
 }
 
 /**
- * Slug libre dérivé de `souhaite` (ou du nom) : suffixé `-2`, `-3`… tant qu'un
- * autre support le porte. sogest ne vérifie pas l'unicité, mais l'API résout
- * les supports par slug (`GET /supports/slug/{slug}`) : un doublon y rendrait
- * l'un des deux inatteignable.
- * @param {string} souhaite
+ * Normalise le slug demandé (ou le dérive du nom) et refuse celui qu'un autre
+ * support porte déjà. sogest ne vérifie pas l'unicité, mais l'API résout les
+ * supports par slug (`GET /supports/slug/{slug}`) : un doublon en rendrait un
+ * inatteignable. Plutôt que de trancher à la place de l'appelant en suffixant
+ * le slug, on refuse l'écriture — à lui de choisir.
+ *
+ * @param {string} souhaite Slug demandé, ou nom du support à défaut
  * @param {number|null} exclureId Support en cours de modification
  * @returns {Promise<string>}
+ * @throws {Error} `err.code = 'slug_existant'`, `err.slug` portant le slug pris
  */
-async function slugLibre(souhaite, exclureId = null) {
-  const base = slugify(String(souhaite || '')) || 'support';
-  let candidat = base;
-
-  for (let n = 2; ; n++) {
-    const query = db('supports').select('id').where('slug', candidat);
-    if (exclureId) query.andWhere('id', '<>', exclureId);
-    if (!(await query.first())) return candidat;
-    candidat = `${base}-${n}`;
+async function resoudreSlug(souhaite, exclureId = null) {
+  const slug = slugify(String(souhaite || ''));
+  if (!slug) {
+    const err = new Error('Slug vide : aucun caractère exploitable dans le nom');
+    err.code = 'slug_invalide';
+    throw err;
   }
+
+  const query = db('supports').select('id', 'nom').where('slug', slug);
+  if (exclureId) query.andWhere('id', '<>', exclureId);
+
+  const pris = await query.first();
+  if (pris) {
+    const err = new Error(`Le slug « ${slug} » est déjà pris par le support « ${pris.nom} » (#${pris.id})`);
+    err.code = 'slug_existant';
+    err.slug = slug;
+    throw err;
+  }
+
+  return slug;
 }
 
 /** Refuse une valeur hors enum : en SQL non strict elle serait écrite vide. */
@@ -330,13 +343,14 @@ function verifierTypeSupport(type) {
 /**
  * Crée un support.
  *
- * Le `slug` est dérivé du nom s'il n'est pas fourni, et rendu unique dans tous
- * les cas.
+ * Le `slug` est dérivé du nom s'il n'est pas fourni ; dans les deux cas la
+ * création est refusée si un autre support le porte déjà.
  *
  * @param {Object} data Champs de `CHAMPS_MODIFIABLES` (`nom` obligatoire)
  * @param {{id?: number, nomComplet?: string}|null} [auteur]
  * @returns {Promise<Object>} Le support créé, au format `getSupport()`
- * @throws {Error} `err.code = 'nom_requis'` / `'type_support_invalide'`
+ * @throws {Error} `err.code = 'nom_requis'` / `'type_support_invalide'` /
+ *   `'slug_existant'` / `'slug_invalide'`
  */
 export async function createSupport(data, auteur = null) {
   const champs = champsFournis(data);
@@ -349,7 +363,7 @@ export async function createSupport(data, auteur = null) {
   verifierTypeSupport(champs.type_support);
 
   champs.nom = String(champs.nom).trim();
-  champs.slug = await slugLibre(champs.slug || champs.nom);
+  champs.slug = await resoudreSlug(champs.slug || champs.nom);
 
   const [id] = await db('supports').insert({
     ...champs,
@@ -382,7 +396,8 @@ export async function createSupport(data, auteur = null) {
  * @param {Object} data Champs de `CHAMPS_MODIFIABLES`
  * @param {{id?: number, nomComplet?: string}|null} [auteur]
  * @returns {Promise<Object|null>} Le support à jour, ou `null` si introuvable
- * @throws {Error} `err.code = 'aucun_champ'` / `'nom_requis'` / `'type_support_invalide'`
+ * @throws {Error} `err.code = 'aucun_champ'` / `'nom_requis'` /
+ *   `'type_support_invalide'` / `'slug_existant'` / `'slug_invalide'`
  */
 export async function updateSupport(id, data, auteur = null) {
   const actuel = await getSupportRow(id);
@@ -405,7 +420,7 @@ export async function updateSupport(id, data, auteur = null) {
     }
   }
 
-  if (champs.slug !== undefined) champs.slug = await slugLibre(champs.slug || champs.nom || actuel.nom, actuel.id);
+  if (champs.slug !== undefined) champs.slug = await resoudreSlug(champs.slug || champs.nom || actuel.nom, actuel.id);
 
   champs.modificateur = auteur?.nomComplet || 'api';
   champs.modificateur_id = auteur?.id || 0;
