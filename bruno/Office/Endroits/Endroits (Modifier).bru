@@ -1,0 +1,36 @@
+meta {
+  name: Endroits (Modifier)
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{base}}/endroits/{{endroitId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+body:json {
+  {
+    "ferme": true,
+    "message_ferme": "Fermée pour travaux",
+    "notif": true,
+    "emails_dest": "regie@sopress.net, office@sopress.net"
+  }
+}
+
+docs {
+  Seuls les champs fournis sont écrits ; l'état précédent est versionné dans
+  `historique` (table `endroits`).
+
+  Fermer un endroit le retire de la réservation sans toucher aux réservations
+  déjà posées — `message_ferme` explique pourquoi.
+}

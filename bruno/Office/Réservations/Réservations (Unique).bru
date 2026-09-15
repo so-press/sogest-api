@@ -1,0 +1,24 @@
+meta {
+  name: Réservations (Unique)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/reservations/{{reservationId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  reservationId: 52519
+}
+
+docs {
+  Erreur : `reservation_inconnue` (404). Les réservations annulées
+  (corbeille) ne sont plus renvoyées.
+}

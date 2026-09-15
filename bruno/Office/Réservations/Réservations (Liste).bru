@@ -1,0 +1,29 @@
+meta {
+  name: Réservations (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/reservations?aVenir=1
+  body: none
+  auth: bearer
+}
+
+params:query {
+  aVenir: 1
+  ~endroitId: salle-de-reunion-1
+  ~userId: 14
+  ~from: 2026-09-14
+  ~to: 2026-09-18
+  ~grouper: 1
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Sans filtre de date, renvoie tout l'historique : pensez à `aVenir=1` ou à
+  `from` / `to`. `endroitId` accepte l'identifiant numérique ou le slug.
+}

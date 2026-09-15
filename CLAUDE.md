@@ -118,6 +118,7 @@ Each domain has a helper file that encapsulates the DB queries. Routes import fr
 - `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
 - `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `absences_historique.js`, `contrats.js`
 - `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`, `mahalo.js`, `calendrier.js`
+- `inc/office/` — `endroits.js`, `reservations.js`, `planning.js`
 - `inc/ndf/` — `ndf.js`, `devises.js`, `detection.js`
 - `inc/systeme/` — `documents.js`, `historique.js`, `notifications.js`
 
@@ -150,6 +151,60 @@ item : d'abord `activites.numero` = `noParution`, puis, pour les items restés
 orphelins, les activités dont `date_bouclage` tombe dans la période de parution.
 Le champ `rapprochement` vaut `numero`, `dates` ou `null`, et `activites` est
 toujours un tableau (un numéro peut porter plusieurs activités).
+
+### Réservation des endroits
+
+Un « endroit » n'est pas forcément un lieu : salle de réunion, salle de montage,
+mais aussi du **matériel** (caméras, trépieds…).
+
+Ces routes ouvrent la réservation **à d'autres outils** — ce n'est pas une
+migration de [the-office](../the-office), qui continue d'appeler l'API legacy de
+sogest (`endroits`, `reservation`, `annuler-reservation`). Les deux écrivent
+dans les mêmes tables (`endroits`, `reservations`) : les règles métier
+ci-dessous sont donc reprises à l'identique de `include/auto/endroits.inc.php`,
+et toute divergence se verrait immédiatement dans les plannings partagés.
+
+- `GET/POST/PUT/DELETE /endroits` — référentiel. Les écritures sont réservées
+  aux admins (`isAdminRequest`), la suppression est une mise en corbeille.
+  `GET /endroits/{id}` accepte l'id **ou le slug**.
+- `GET /endroits/types`, `GET /endroits/grille` — les constantes d'affichage
+  (types, jours ouvrés, pas de 30 min de 08:00 à 21:00, créneaux matin /
+  après-midi / journée).
+- `GET /endroits/{id}/planning?semaine=` — la semaine prête à dessiner : jours
+  datés, grille horaire, navigation de semaine en semaine (numéros ISO) et
+  réservations de la période. C'est le remplaçant des champs `date` / `heures` /
+  `jours` / `creneaux` que la route legacy collait sur **chaque** endroit.
+- `GET /endroits/{id}/disponibilite` — libre maintenant, ou sur une plage
+  donnée (la réponse liste alors les réservations qui la bloquent).
+- `PUT /endroits/{id}/ecran` — les écrans posés devant les salles s'annoncent
+  eux-mêmes (pendant de `endroit.php?slug=…&ip=…`). **L'image de l'écran reste
+  générée par sogest** (GD) : l'API n'en expose que l'URL (champ `ecran`).
+- `GET/POST/PUT/DELETE /reservations` — les réservations. Modifier ou annuler
+  est réservé au titulaire ou à un admin ; l'annulation est une mise en
+  corbeille. L'état précédent est versionné dans `historique`.
+
+Règles métier reprises de sogest :
+
+- la plage se donne au choix par `fin`, `duree` (`01:30`) ou `creneau`
+  (`matin`, `apres-midi`, `journee`) ;
+- le **chevauchement** est refusé (`creneau_occupe`, 409, la réponse listant les
+  réservations en cause) ; deux créneaux qui se touchent ne se gênent pas ;
+- un endroit rattaché à une équipe (`id_equipe`) n'est réservable que par ses
+  membres (`equipe_requise`), les ultra admins passant outre ; un endroit fermé
+  ne l'est par personne (`endroit_ferme`) ;
+- réserver **au nom d'un autre** (`user_id`) demande d'être admin ;
+- `couleur1` / `couleur2` sont recalculées comme sogest (`crc32` de l'id
+  utilisateur), pour que les deux applications affichent les mêmes couleurs.
+
+`/reservations` accepte le JWT **et** le jeton applicatif statique — mais le
+jeton doit alors désigner l'utilisateur pour le compte de qui il agit
+(`auteur_user_id` ou `X-Auteur-User-Id`, comme les écritures sur `/equipes`),
+sinon **401 `utilisateur_requis`** : une réservation appartient toujours à
+quelqu'un.
+
+Non repris : l'**envoi d'e-mails** de notification aux `emails_dest` d'un
+endroit (`notif`), l'API n'ayant pas de client SMTP — les champs restent
+exposés et modifiables, l'envoi reste du côté de sogest.
 
 ### Lecture des justificatifs de notes de frais
 

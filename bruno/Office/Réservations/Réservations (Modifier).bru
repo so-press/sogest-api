@@ -1,0 +1,36 @@
+meta {
+  name: Réservations (Modifier)
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{base}}/reservations/{{reservationId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+vars:pre-request {
+  reservationId: 52519
+}
+
+body:json {
+  {
+    "jour": "2026-09-17",
+    "debut": "14:00",
+    "duree": "02:00",
+    "objet": "Point rédac (déplacé)"
+  }
+}
+
+docs {
+  Déplacer une réservation ou changer son objet. L'endroit n'est pas
+  modifiable : annulez et reréservez.
+
+  Réservé au titulaire ou à un administrateur (`non_habilite`) ; le
+  chevauchement est vérifié comme à la création (`creneau_occupe`).
+}

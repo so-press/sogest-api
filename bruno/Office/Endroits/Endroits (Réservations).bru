@@ -1,0 +1,31 @@
+meta {
+  name: Endroits (Réservations)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{base}}/endroits/{{endroitId}}/reservations?aVenir=1
+  body: none
+  auth: bearer
+}
+
+params:query {
+  aVenir: 1
+  ~jour: 2026-09-16
+  ~grouper: 1
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+docs {
+  `grouper=1` fusionne les créneaux consécutifs d'un même utilisateur : deux
+  fois 30 minutes collées deviennent une heure. C'est ce qu'affiche l'écran
+  posé devant la salle.
+}

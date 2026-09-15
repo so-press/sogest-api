@@ -1,0 +1,45 @@
+meta {
+  name: Réservations (Créer)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base}}/reservations
+  body: json
+  auth: bearer
+}
+
+headers {
+  ~X-Auteur-User-Id: 14
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "endroit_id": "salle-de-reunion-1",
+    "jour": "2026-09-16",
+    "debut": "10:00",
+    "duree": "01:00",
+    "objet": "Point rédac"
+  }
+}
+
+docs {
+  La plage se donne au choix : `fin`, `duree` (`01:30`) ou `creneau` (`matin`,
+  `apres-midi`, `journee`).
+
+  Le chevauchement est refusé (**409 `creneau_occupe`**, la réponse listant les
+  réservations en cause) ; deux créneaux qui se touchent ne se gênent pas.
+
+  Un endroit rattaché à une équipe n'est réservable que par ses membres
+  (`equipe_requise`), un endroit fermé par personne (`endroit_ferme`).
+  Réserver au nom d'un autre (`user_id`) demande d'être administrateur.
+
+  Sous jeton applicatif statique, l'utilisateur pour le compte de qui on agit
+  doit être désigné (`auteur_user_id` ou l'en-tête `X-Auteur-User-Id`, id
+  sogest ou `sub` SSO `spc-sogest_{id}`), sinon **401 `utilisateur_requis`**.
+}

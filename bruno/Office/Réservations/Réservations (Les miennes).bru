@@ -1,0 +1,25 @@
+meta {
+  name: Réservations (Les miennes)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/reservations?moi=1&aVenir=1
+  body: none
+  auth: bearer
+}
+
+params:query {
+  moi: 1
+  aVenir: 1
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  `moi=1` vise l'utilisateur du JWT. Avec un jeton applicatif statique, il faut
+  désigner la personne via l'en-tête `X-Auteur-User-Id`.
+}

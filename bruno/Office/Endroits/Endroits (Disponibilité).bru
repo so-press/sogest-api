@@ -1,0 +1,30 @@
+meta {
+  name: Endroits (Disponibilité)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base}}/endroits/{{endroitId}}/disponibilite?jour=2026-09-16&debut=10:00&fin=11:00
+  body: none
+  auth: bearer
+}
+
+params:query {
+  jour: 2026-09-16
+  debut: 10:00
+  fin: 11:00
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+docs {
+  Sans paramètre, répond pour maintenant (la pastille « Disponible / Occupée »).
+  Avec `fin`, teste toute une plage et renvoie les réservations qui la bloquent.
+}

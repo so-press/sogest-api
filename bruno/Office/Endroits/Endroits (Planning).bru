@@ -1,0 +1,31 @@
+meta {
+  name: Endroits (Planning)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base}}/endroits/{{endroitId}}/planning
+  body: none
+  auth: bearer
+}
+
+params:query {
+  ~semaine: 38
+  ~annee: 2026
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+docs {
+  Tout ce qu'il faut pour dessiner la semaine : les cinq jours ouvrés datés, la
+  grille horaire, les créneaux, la navigation d'une semaine à l'autre
+  (`semaine.precedente` / `semaine.suivante`, numéros ISO) et les réservations
+  de la période.
+}

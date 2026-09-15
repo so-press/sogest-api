@@ -1,0 +1,24 @@
+meta {
+  name: Endroits (Supprimer)
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{base}}/endroits/{{endroitId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: 103
+}
+
+docs {
+  Mise à la corbeille (`trash = 1`), comme sogest : l'endroit disparaît des
+  listes, les réservations passées restent consultables.
+}

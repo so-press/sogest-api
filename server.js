@@ -27,6 +27,8 @@ import * as ndf from './routes/ndf.js';
 import * as projets from './routes/projets.js';
 import * as activites from './routes/activites.js';
 import * as devises from './routes/devises.js';
+import * as endroits from './routes/endroits.js';
+import * as reservations from './routes/reservations.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -50,7 +52,9 @@ const routes = {
   ndf,
   projets,
   activites,
-  devises
+  devises,
+  endroits,
+  reservations
 };
 
 // Load environment variables

@@ -1,0 +1,30 @@
+meta {
+  name: Endroits (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/endroits?type=reunion
+  body: none
+  auth: bearer
+}
+
+params:query {
+  type: reunion
+  ~ouverts: 1
+  ~equipeId: 4019
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Les endroits réservables, triés comme dans sogest (`ordre` puis `libelle`).
+  Un « endroit » n'est pas forcément un lieu : salles de réunion, de montage,
+  mais aussi du matériel (cf. `Endroits (Types)`).
+
+  `disponible` dit si l'endroit est libre **à cet instant** ; `ouverts=1`
+  masque ceux qui sont fermés à la réservation.
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Endroits (Grille)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base}}/endroits/grille
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Les constantes d'affichage communes à tous les endroits : jours ouvrés, pas
+  de 30 minutes de 08:00 à 21:00, et créneaux « en un clic » (`matin`,
+  `apres-midi`, `journee`) acceptés par `Réservations (Créer)`.
+}

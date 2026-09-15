@@ -1,0 +1,19 @@
+meta {
+  name: Endroits (Types)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/endroits/types
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Les quatre familles d'endroits : `reunion`, `montage`, `materiel`, `autre`.
+}

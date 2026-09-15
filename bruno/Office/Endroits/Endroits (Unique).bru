@@ -1,0 +1,23 @@
+meta {
+  name: Endroits (Unique)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base}}/endroits/{{endroitId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+docs {
+  Identifiant numérique **ou** slug. Erreur : `endroit_inconnu` (404).
+}

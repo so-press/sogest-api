@@ -1,0 +1,31 @@
+meta {
+  name: Endroits (Écran)
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{base}}/endroits/{{endroitId}}/ecran
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  endroitId: salle-de-reunion-1
+}
+
+body:json {
+  {
+    "ip": "192.168.143.91"
+  }
+}
+
+docs {
+  Les écrans posés devant les salles s'annoncent eux-mêmes (pendant de
+  `endroit.php?slug=…&ip=…` en legacy). L'image affichée reste générée par
+  sogest ; l'endroit en porte l'URL dans son champ `ecran`.
+}

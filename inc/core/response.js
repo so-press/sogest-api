@@ -8,12 +8,15 @@
  * @param {number} status Statut HTTP
  * @param {string} code Code stable, ex. `membre_existant`
  * @param {string} message Message lisible destiné à l'appelant
+ * @param {Object} [details] Champs supplémentaires joints à la réponse d'erreur
+ *   (ex. les réservations qui bloquent un créneau)
  * @returns {Error}
  */
-export function httpError(status, code, message) {
+export function httpError(status, code, message, details = null) {
   const err = new Error(message);
   err.status = status;
   err.errorCode = code;
+  if (details) err.details = details;
   return err;
 }
 
@@ -102,6 +105,8 @@ export function handleResponse(handler) {
       res.status(status).json({
         error: err.errorCode || (status === 500 ? 'Server error' : (err.message || 'Error')),
         message: err.errorCode ? err.message : '' + err,
+        // Contexte métier éventuel (cf. `httpError(..., details)`).
+        ...(err.details || {}),
       });
     }
   };

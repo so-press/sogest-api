@@ -1,0 +1,32 @@
+meta {
+  name: Endroits (Créer)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base}}/endroits
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "libelle": "Caméra Sony #3",
+    "type": "materiel",
+    "description": "Rangée au studio",
+    "id_equipe": 0,
+    "ordre": 100
+  }
+}
+
+docs {
+  Réservé aux administrateurs (ou à un jeton applicatif statique) → **201**.
+
+  Le `slug` est dérivé du libellé si on ne le fournit pas, et rendu unique.
+  Erreurs : `libelle_requis` / `type_inconnu` (400), `non_habilite` (403).
+}
