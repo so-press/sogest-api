@@ -23,6 +23,30 @@ export async function resolveLogoUrls(id) {
   };
 }
 
+/**
+ * Pages d'abonnements du support (`[{ url, titre }]`, titre éventuellement
+ * vide), saisies dans l'onglet « Abonnements » de sogest. À défaut, repli sur
+ * le premier des liens à partager libellé « boutique », exposé sous le titre
+ * « Boutique » : les supports qui n'ont pas encore été renseignés gardent ainsi
+ * une page où s'abonner.
+ */
+function pagesAbonnements(stockees, liens) {
+  let pages = [];
+  if (typeof stockees === 'string' && stockees) {
+    try { pages = JSON.parse(stockees); } catch { pages = []; }
+  }
+  pages = (Array.isArray(pages) ? pages : [])
+    .filter((p) => p && typeof p.url === 'string' && p.url.trim())
+    .map((p) => ({ url: p.url.trim(), titre: typeof p.titre === 'string' ? p.titre.trim() : '' }));
+  if (pages.length) return pages;
+
+  const boutique = (Array.isArray(liens) ? liens : []).find(
+    (l) => l && typeof l.url === 'string' && l.url.trim()
+      && String(l.libelle ?? '').trim().toLowerCase() === 'boutique',
+  );
+  return boutique ? [{ url: boutique.url.trim(), titre: 'Boutique' }] : [];
+}
+
 async function formatSupport(row) {
   if (!row) return row;
 
@@ -31,6 +55,8 @@ async function formatSupport(row) {
   if (typeof out.liens === 'string') {
     try { out.liens = JSON.parse(out.liens); } catch { out.liens = []; }
   }
+
+  out.pages_abonnements = pagesAbonnements(out.pages_abonnements, out.liens);
 
   if (typeof out.contenus === 'string') {
     out.contenus = out.contenus ? out.contenus.split(',').map(Number).filter(Boolean) : [];

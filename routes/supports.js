@@ -99,6 +99,12 @@ export { publicRouter };
  *       `derniere_activite`, l'activité la plus récente du support (par
  *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
  *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
+ *
+ *       **Pages d'abonnements** : `pages_abonnements` liste les pages où
+ *       s'abonner au support (`[{ url, titre }]`, `titre` pouvant être vide).
+ *       Si la fiche n'en déclare aucune, on y trouve à la place le premier des
+ *       `liens` libellé « boutique », sous le titre `Boutique` ; tableau vide
+ *       s'il n'y en a pas non plus.
  *     responses:
  *       200:
  *         description: Liste paginée des supports
@@ -133,6 +139,12 @@ router.get('/', handleResponse(async (req) => {
  *       `derniere_activite`, l'activité la plus récente du support (par
  *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
  *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
+ *
+ *       **Pages d'abonnements** : `pages_abonnements` liste les pages où
+ *       s'abonner au support (`[{ url, titre }]`, `titre` pouvant être vide).
+ *       Si la fiche n'en déclare aucune, on y trouve à la place le premier des
+ *       `liens` libellé « boutique », sous le titre `Boutique` ; tableau vide
+ *       s'il n'y en a pas non plus.
  *     parameters:
  *       - in: path
  *         name: slug
@@ -434,6 +446,12 @@ router.get('/:supportId/activites', handleResponse(async (req, res) => {
  *       `derniere_activite`, l'activité la plus récente du support (par
  *       `date_bouclage`, `id` en départage), avec son `couverture` (URL de
  *       l'image de couv, ou `null`). `null` si le support n'a aucune activité.
+ *
+ *       **Pages d'abonnements** : `pages_abonnements` liste les pages où
+ *       s'abonner au support (`[{ url, titre }]`, `titre` pouvant être vide).
+ *       Si la fiche n'en déclare aucune, on y trouve à la place le premier des
+ *       `liens` libellé « boutique », sous le titre `Boutique` ; tableau vide
+ *       s'il n'y en a pas non plus.
  *     parameters:
  *       - in: path
  *         name: id
