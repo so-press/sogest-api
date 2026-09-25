@@ -52,6 +52,8 @@ router.get('/', handleResponse(async (req, res) => {
  *       `clientId`/`clientName` de la variante, et le champ `variantes` est
  *       omis de la réponse. `main_client_id` conserve le `client_id` réel du
  *       client parent (présent sur toutes les réponses, variante ou non).
+ *       `mattermost` est un booléen : vrai si ce client (ou cette variante)
+ *       est en mode Mattermost.
  *     parameters:
  *       - in: path
  *         name: id

@@ -18,6 +18,9 @@ const PUBLIC_FIELDS = [
   // pour résoudre le rôle de l'utilisateur connecté. Objet indexé par client_id :
   //   { "<client_id>": { acces_mode, droits:[{user_id, role}] } }
   'ssoclients.droits',
+  // Périmètres (client_id principal ou variantes) en mode Mattermost, liste JSON.
+  // Projetée en booléen sur le client demandé (cf. projectMattermost).
+  'ssoclients.mattermost',
   // Config Sign in with Google (source d'auth `google`) — consommée par le SSO.
   // L'entité accordée = slug du support rattaché (pas de colonne dédiée).
   'ssoclients.google_oauth_client_id', 'ssoclients.google_publication_id',
@@ -40,10 +43,22 @@ function projectDroits(droits, clientId) {
   return droits[clientId] ?? null;
 }
 
+/**
+ * Vrai si `clientId` (client principal ou variante) figure dans la liste des
+ * périmètres en mode Mattermost.
+ *
+ * @param {string[]} mattermost
+ * @param {string} clientId
+ * @returns {boolean}
+ */
+function projectMattermost(mattermost, clientId) {
+  return Array.isArray(mattermost) && mattermost.includes(clientId);
+}
+
 async function formatSsoclient(row) {
   if (!row) return row;
 
-  for (const field of ['redirect_uris', 'urls', 'auth_sources', 'variantes']) {
+  for (const field of ['redirect_uris', 'urls', 'auth_sources', 'variantes', 'mattermost']) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
@@ -105,6 +120,8 @@ export async function getSsoclients() {
 
   const entries = [];
   for (const client of clients) {
+    const mattermost = client.mattermost;
+    client.mattermost = projectMattermost(mattermost, client.client_id);
     entries.push(client);
 
     const variantes = Array.isArray(client.variantes) ? client.variantes : [];
@@ -114,6 +131,7 @@ export async function getSsoclients() {
       projected.client_id = variante.clientId;
       projected.subtitle = variante.clientName;
       projected.base_url = variante.url;
+      projected.mattermost = projectMattermost(mattermost, variante.clientId);
       delete projected.variantes;
       entries.push(projected);
     }
@@ -148,6 +166,7 @@ export async function getSsoclient(idOrClientId) {
   if (direct) {
     const formatted = await formatSsoclient(direct);
     formatted.droits = projectDroits(formatted.droits, formatted.client_id);
+    formatted.mattermost = projectMattermost(formatted.mattermost, formatted.client_id);
     return formatted;
   }
 console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrClientId);
@@ -172,6 +191,7 @@ console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrC
       formatted.subtitle = match.clientName;
       formatted.base_url = match.url;
       formatted.droits = projectDroits(formatted.droits, match.clientId);
+      formatted.mattermost = projectMattermost(formatted.mattermost, match.clientId);
       delete formatted.variantes;
       return formatted;
     }
