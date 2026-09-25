@@ -14,6 +14,9 @@ const PUBLIC_FIELDS = [
   'ssoclients.main_color', 'ssoclients.main_color_alt',
   'ssoclients.support_id', 'ssoclients.client_secret', 'ssoclients.auth_sources',
   'ssoclients.variantes',
+  // Secrets propres des variantes ({clientId: secret}) : servent à calculer le
+  // client_secret_hash d'une variante, puis sont retirés de la réponse.
+  'ssoclients.variantes_secrets',
   // Droits d'accès par périmètre (source d'auth `sogest`) — consommés par le SSO
   // pour résoudre le rôle de l'utilisateur connecté. Objet indexé par client_id :
   //   { "<client_id>": { acces_mode, droits:[{user_id, role}] } }
@@ -55,6 +58,19 @@ function projectMattermost(mattermost, clientId) {
   return Array.isArray(mattermost) && mattermost.includes(clientId);
 }
 
+/**
+ * Haché du secret propre à une variante, ou `null` si elle n'en a pas : elle
+ * s'authentifie alors avec le secret du client principal.
+ *
+ * @param {Object} secrets - `{ "<clientId>": "<secret>" }`
+ * @param {string} clientId
+ * @returns {Promise<string|null>}
+ */
+async function varianteSecretHash(secrets, clientId) {
+  const secret = secrets?.[clientId];
+  return secret ? bcrypt.hash(secret, 10) : null;
+}
+
 async function formatSsoclient(row) {
   if (!row) return row;
 
@@ -62,6 +78,10 @@ async function formatSsoclient(row) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
+  }
+
+  if (typeof row.variantes_secrets === 'string') {
+    try { row.variantes_secrets = JSON.parse(row.variantes_secrets); } catch { row.variantes_secrets = {}; }
   }
 
   // `droits` est un objet indexé par client_id (et non une liste) → fallback {}.
@@ -122,6 +142,8 @@ export async function getSsoclients() {
   for (const client of clients) {
     const mattermost = client.mattermost;
     client.mattermost = projectMattermost(mattermost, client.client_id);
+    const secrets = client.variantes_secrets;
+    delete client.variantes_secrets;
     entries.push(client);
 
     const variantes = Array.isArray(client.variantes) ? client.variantes : [];
@@ -132,6 +154,7 @@ export async function getSsoclients() {
       projected.subtitle = variante.clientName;
       projected.base_url = variante.url;
       projected.mattermost = projectMattermost(mattermost, variante.clientId);
+      projected.client_secret_hash = await varianteSecretHash(secrets, variante.clientId) ?? client.client_secret_hash;
       delete projected.variantes;
       entries.push(projected);
     }
@@ -167,6 +190,7 @@ export async function getSsoclient(idOrClientId) {
     const formatted = await formatSsoclient(direct);
     formatted.droits = projectDroits(formatted.droits, formatted.client_id);
     formatted.mattermost = projectMattermost(formatted.mattermost, formatted.client_id);
+    delete formatted.variantes_secrets;
     return formatted;
   }
 console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrClientId);
@@ -192,6 +216,8 @@ console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrC
       formatted.base_url = match.url;
       formatted.droits = projectDroits(formatted.droits, match.clientId);
       formatted.mattermost = projectMattermost(formatted.mattermost, match.clientId);
+      formatted.client_secret_hash = await varianteSecretHash(formatted.variantes_secrets, match.clientId) ?? formatted.client_secret_hash;
+      delete formatted.variantes_secrets;
       delete formatted.variantes;
       return formatted;
     }
