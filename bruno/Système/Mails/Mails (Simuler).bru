@@ -1,0 +1,36 @@
+meta {
+  name: Mails (Simuler)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base}}/mails
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "to": "alice@sopress.com, bob@sopress.com",
+    "cc": [{ "email": "chef@sopress.com", "nom": "Le chef" }],
+    "sujet": "Réunion de lundi",
+    "message": "Bonjour,\nLa réunion est décalée à 10h.",
+    "simuler": true
+  }
+}
+
+docs {
+  `simuler: true` valide tout — destinataires, sujet, contenu, pièces jointes —
+  et renvoie **ce qui serait envoyé**, sans rien expédier ni appeler le
+  fournisseur.
+
+  C'est la façon de mettre au point une intégration sans écrire à personne :
+  `mail` montre l'expéditeur retenu, les destinataires effectifs et le format
+  (`html`, `texte` ou `html+texte`), `redirection` dit si le garde-fou de
+  l'environnement détournerait le message.
+}

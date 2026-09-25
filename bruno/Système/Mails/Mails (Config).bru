@@ -1,0 +1,27 @@
+meta {
+  name: Mails (Config)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/mails/config
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  L'état de la configuration d'envoi, sans jamais exposer de clé : fournisseur
+  essayé en premier, clés présentes ou non, expéditeur par défaut, redirection
+  active.
+
+  **À regarder avant de se demander pourquoi un mail n'arrive pas** : si
+  `redirection.actif` vaut `true`, tout part vers `redirection.vers` et aucun
+  destinataire réel n'est servi.
+
+  Réservé au jeton applicatif statique, comme l'envoi.
+}

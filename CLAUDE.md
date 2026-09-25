@@ -26,6 +26,10 @@ Copy `.env` from a template (not committed). Required variables:
 - `ASK_URL`, `PDF_TO_IMAGE_URL` — services maison utilisés par la lecture des
   justificatifs de notes de frais (défauts : `https://tools.sopress.dev/ask/` et
   `https://tools.sopress.dev/pdf-to-image/v2/`), voir plus bas
+- `MAIL_PROVIDER` (`brevo` | `mailjet`), `BREVO_API_KEY` (clé **e-mails**, distincte de
+  `BREVO_SMS_API_KEY`), `MAILJET_KEY`, `MAILJET_SECRET`, `MAIL_FROM`,
+  `MAIL_FROM_NAME`, `MAIL_BCC`, `MAIL_FALLBACK`, `MAIL_REDIRECT_TO`, `MAIL_ENV`,
+  `MAIL_MAX_ATTACHMENT_MB` — envoi d'e-mails, voir plus bas
 - `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
@@ -114,7 +118,7 @@ Two clients coexist:
 
 Each domain has a helper file that encapsulates the DB queries. Routes import from these helpers rather than querying the DB directly. Helpers are grouped into thematic subfolders mirroring the OpenAPI `x-tagGroups` and the Bruno collection:
 
-- `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`, `ask.js`, `pdf.js`
+- `inc/core/` — transverse infra, no domain logic: `response.js`, `request.js`, `query_builder.js`, `utils.js`, `sogest.js`, `access.js`, `options.js`, `ask.js`, `pdf.js`, `sms.js`, `mail.js`
 - `inc/auth/` — `ssoclients.js` (SSO clients). The auth/JWT request middleware lives separately in `inc/middleware/`.
 - `inc/rh/` — `users.js`, `personnes.js`, `equipes.js`, `absences.js`, `absences_historique.js`, `contrats.js`
 - `inc/editorial/` — `supports.js`, `editions.js`, `projets.js`, `activites.js`, `piges.js`, `mahalo.js`, `calendrier.js`
@@ -202,9 +206,57 @@ jeton doit alors désigner l'utilisateur pour le compte de qui il agit
 sinon **401 `utilisateur_requis`** : une réservation appartient toujours à
 quelqu'un.
 
-Non repris : l'**envoi d'e-mails** de notification aux `emails_dest` d'un
-endroit (`notif`), l'API n'ayant pas de client SMTP — les champs restent
-exposés et modifiables, l'envoi reste du côté de sogest.
+Non repris : l'**envoi automatique des notifications** aux `emails_dest` d'un
+endroit (`notif`) lorsqu'une réservation est posée. Les champs restent exposés
+et modifiables, et l'envoi lui-même est désormais possible via `POST /mails`
+(voir plus bas) — mais aucune route de réservation ne le déclenche d'elle-même :
+côté sogest, c'est toujours lui qui notifie.
+
+### Envoi d'e-mails
+
+`POST /mails` relaie un e-mail transactionnel chez un prestataire et **raconte
+comment l'envoi s'est déroulé** : quel fournisseur a servi, l'identifiant qu'il
+a rendu, ce qui a réellement été expédié, et le détail de chaque tentative.
+`GET /mails/config` expose l'état de la configuration (sans jamais de clé), pour
+qu'un outil puisse vérifier son terrain avant de s'étonner.
+
+`inc/core/mail.js` est le pendant de `inc/core/sms.js` : **Brevo d'abord,
+Mailjet en secours**, comme `smtp_sendmail()` dans sogest. Deux fournisseurs
+parce qu'un service d'envoi peut être suspendu du jour au lendemain (quota,
+réputation, validation de compte) : garder le second câblé évite que tout ce qui
+dépend de l'e-mail s'arrête avec lui. `MAIL_FALLBACK=0` désactive la bascule,
+`provider` l'impose pour un envoi donné.
+
+- le corps se donne par `html` et/ou `texte`, ou par `message` seul — interprété
+  comme dans sogest : des balises ⇒ HTML (la version texte en est dérivée),
+  sinon texte (la version HTML est échappée) ;
+- les pièces jointes sont acceptées en base64 (`{contenu, nom}`) ou par URL
+  (`{url}`). **L'URL est téléchargée par l'API**, jamais déléguée au
+  fournisseur : Mailjet ne sait pas le faire, et le faire nous-mêmes garantit le
+  même résultat et les mêmes limites (`MAIL_MAX_ATTACHMENT_MB`, 10 Mo cumulés)
+  quel que soit celui qui envoie. Un chemin de fichier local n'est **pas**
+  accepté, contrairement à sogest : l'appelant est distant ici, ce serait lui
+  offrir la lecture du disque du serveur ;
+- `simuler: true` valide tout et renvoie ce qui *serait* envoyé, sans rien
+  expédier. C'est la façon de tester une intégration sans écrire à personne ;
+- un refus des deux fournisseurs renvoie **502** avec le même corps qu'un
+  succès (`ok: false`), `tentatives` disant ce qu'a répondu chacun.
+
+**`MAIL_REDIRECT_TO` est le garde-fou des environnements de test** : tant
+qu'elle est posée, tout part vers cette seule adresse, sujet préfixé de
+`MAIL_ENV` et bandeau rappelant les destinataires réels (même principe que
+`brevo_env()` dans sogest). La réponse le signale dans `redirection`. **À vider
+en production**, sinon plus aucun mail n'atteint son destinataire.
+
+Cette route est **réservée au jeton applicatif statique** : un JWT utilisateur
+est refusé (`jeton_applicatif_requis`). C'est l'inverse de `requireAuth`, et il
+n'y a pas de mécanisme générique pour ça — le contrôle est fait dans la route
+(`assertJetonApplicatif()`). Une route qui expédie du courrier au nom de
+l'entreprise n'a pas à être joignable depuis un navigateur : un front qui doit
+envoyer un mail passe par son backend, qui détient le jeton.
+
+Les envois **ne sont pas journalisés** en base : la réponse HTTP est la seule
+trace, à charge de l'appelant de la conserver s'il en a besoin.
 
 ### Lecture des justificatifs de notes de frais
 

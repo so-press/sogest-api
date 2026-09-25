@@ -55,7 +55,7 @@ const spec = swaggerJsdoc({
             { name: 'Éditorial', tags: ['Supports', 'Editions', 'Projets', 'Activités'] },
             { name: 'Notes de frais', tags: ['Notes de frais', 'Devises'] },
             { name: 'Office', tags: ['Endroits', 'Réservations'] },
-            { name: 'Système', tags: ['Documents', 'Historique', 'Notifications'] },
+            { name: 'Système', tags: ['Documents', 'Historique', 'Notifications', 'Mails'] },
         ],
         components: {
             securitySchemes: {
@@ -143,6 +143,68 @@ const spec = swaggerJsdoc({
                         lien: { type: 'string' },
                         coordonnees: { type: 'string' },
                         slug: { type: 'string', description: 'Dérivé du libellé si absent ; unicité garantie' },
+                    },
+                },
+                EnvoiMail: {
+                    type: 'object',
+                    description: "Compte rendu d'envoi : ce qui est parti, par qui, et ce qu'ont répondu les fournisseurs essayés.",
+                    properties: {
+                        ok: { type: 'boolean' },
+                        simule: { type: 'boolean', description: 'Envoi simulé (`simuler: true`) : rien n\'a été expédié' },
+                        provider: { type: 'string', nullable: true, enum: ['brevo', 'mailjet', null], description: 'Fournisseur qui a accepté le message' },
+                        message_id: { type: 'string', nullable: true, description: 'Identifiant rendu par le fournisseur' },
+                        erreur: { type: 'string', description: "Présent quand aucun fournisseur n'a accepté" },
+                        tentatives: {
+                            type: 'array',
+                            description: 'Une entrée par fournisseur essayé, dans l\'ordre',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    provider: { type: 'string' },
+                                    ok: { type: 'boolean' },
+                                    statut: { type: 'integer', description: 'Code HTTP rendu par le fournisseur' },
+                                    erreur: { type: 'string', enum: ['non_configure', 'refus_fournisseur', 'exception'] },
+                                    detail: { type: 'string' },
+                                    message_id: { type: 'string', nullable: true },
+                                    duree_ms: { type: 'integer' },
+                                },
+                            },
+                        },
+                        redirection: {
+                            type: 'object',
+                            description: 'Garde-fou `MAIL_REDIRECT_TO` : dit si le message a été détourné',
+                            properties: {
+                                actif: { type: 'boolean' },
+                                vers: { type: 'string' },
+                                etiquette: { type: 'string' },
+                                destinataires_reels: { type: 'object' },
+                            },
+                        },
+                        mail: {
+                            type: 'object',
+                            description: 'Ce qui a réellement été soumis au fournisseur',
+                            properties: {
+                                from: { type: 'object' },
+                                reply_to: { type: 'object' },
+                                to: { type: 'array', items: { type: 'string' } },
+                                cc: { type: 'array', items: { type: 'string' } },
+                                bcc: { type: 'array', items: { type: 'string' } },
+                                sujet: { type: 'string' },
+                                format: { type: 'string', enum: ['html', 'texte', 'html+texte'] },
+                                pieces_jointes: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            nom: { type: 'string' },
+                                            type: { type: 'string' },
+                                            octets: { type: 'integer' },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        duree_ms: { type: 'integer' },
                     },
                 },
                 Reservation: {

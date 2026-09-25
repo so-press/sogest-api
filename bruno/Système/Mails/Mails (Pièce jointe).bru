@@ -1,0 +1,41 @@
+meta {
+  name: Mails (Pièce jointe)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base}}/mails
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "to": "alice@sopress.com",
+    "sujet": "Le justificatif demandé",
+    "message": "Bonjour,\nLe justificatif est en pièce jointe.",
+    "pieces_jointes": [
+      { "url": "https://sogest.gilles.sopress.dev/images/avatar.png", "nom": "avatar.png" },
+      { "nom": "note.txt", "contenu": "UGnDqGNlIGpvaW50ZSBkZSB0ZXN0Lg==" }
+    ],
+    "simuler": true
+  }
+}
+
+docs {
+  Deux formes acceptées : `{url}`, que **l'API télécharge elle-même** (jamais
+  déléguée au fournisseur, pour que les limites soient les mêmes partout), et
+  `{contenu, nom}` en base64 — `nom` étant alors obligatoire.
+
+  Le type MIME est déduit du nom (ou de la réponse HTTP) si `type` est absent.
+  Taille cumulée plafonnée par `MAIL_MAX_ATTACHMENT_MB` (10 Mo par défaut),
+  au-delà : `pieces_jointes_trop_lourdes`.
+
+  Un **chemin de fichier local** n'est pas accepté, contrairement à sogest :
+  l'appelant est distant, ce serait lui offrir la lecture du disque du serveur.
+}

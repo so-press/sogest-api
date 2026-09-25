@@ -1,0 +1,33 @@
+meta {
+  name: Mails (Fournisseur imposé)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base}}/mails
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "to": "alice@sopress.com",
+    "sujet": "Test Mailjet",
+    "message": "Envoi forcé chez Mailjet.",
+    "provider": "mailjet",
+    "simuler": true
+  }
+}
+
+docs {
+  `provider` (`brevo` | `mailjet`) impose le fournisseur **et désactive la
+  bascule** : s'il refuse, l'envoi échoue en 502 sans essayer l'autre.
+
+  Utile pour vérifier qu'un fournisseur de secours fonctionne encore, avant
+  d'en avoir besoin.
+}

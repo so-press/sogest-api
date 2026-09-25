@@ -1,0 +1,41 @@
+meta {
+  name: Mails (Envoyer)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base}}/mails
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "to": "alice@sopress.com",
+    "sujet": "Votre note de frais est validée",
+    "html": "<p>Bonjour,</p><p>Votre note de frais de septembre a été <b>validée</b>.</p>",
+    "texte": "Bonjour,\nVotre note de frais de septembre a été validée.",
+    "from": { "email": "sogest@sopress.com", "nom": "SOGEST" },
+    "reply_to": "ne-pas-repondre@sopress.com"
+  }
+}
+
+docs {
+  Envoi réel. La réponse raconte **comment ça s'est passé** : `provider` dit qui
+  a servi, `message_id` l'identifiant rendu par le fournisseur, `mail` ce qui a
+  réellement été soumis, et `tentatives` le détail de chaque fournisseur essayé.
+
+  Brevo est tenté en premier, Mailjet prend le relais s'il refuse. Si les deux
+  échouent : **502**, même corps, `ok: false`, et `tentatives` explique pourquoi.
+
+  Le corps se donne par `html` et/ou `texte`, ou par `message` seul (HTML
+  détecté automatiquement s'il contient des balises).
+
+  ⚠️ Vérifiez `Mails (Config)` d'abord : si une redirection est active, ce
+  message ne partira pas chez `to`.
+}
