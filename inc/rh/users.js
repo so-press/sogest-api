@@ -213,7 +213,7 @@ export async function getUserCapabilities(userId) {
         kiosque: false, voirActivitesSopress: false, permanent: false, accesPdf: false,
         traiterNdf: false, saisirNdfPourTiers: false, saisirAvances: false,
         saisirAvancePourTiers: false, traiterProd: false, traiterDocuments: false,
-        adminOffice: false, seConnecterEnTantQue: false,
+        adminOffice: false, seConnecterEnTantQue: false, mattermost: false,
     };
     if (!userId || isNaN(userId)) return can;
 
@@ -253,6 +253,7 @@ export async function getUserCapabilities(userId) {
     can.traiterDocuments = (ultraAdmin && voirActivitesSopress) || link('doc_trt');
     can.adminOffice = ultraAdmin || link('admin_office');
     can.seConnecterEnTantQue = ultraAdmin || link('connect_as');
+    can.mattermost = truthy(u.mattermost);
 
     const permanent = admin || await isPersonnePermanente(u.personne_id);
     can.permanent = permanent;

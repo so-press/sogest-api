@@ -3,12 +3,15 @@ import sharp from 'sharp';
 import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, getUserCapabilities } from '../inc/rh/users.js';
 import { getEquipesByUserId } from '../inc/rh/equipes.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
-import { isUltraAdminRequest } from '../inc/core/access.js';
+import { isAdminRequest, isUltraAdminRequest } from '../inc/core/access.js';
 import {
     getTfaEtat, demarrerEnrolement, confirmerEnrolement, verifierCode,
     envoyerCodeSms, genererCodesSecours, confierAppareil, appareilDeConfiance,
     revoquerAppareils, reinitialiserTfa,
 } from '../inc/rh/tfa.js';
+import {
+    getEtatMattermost, rechercherCompteMattermost, synchroMotDePasseMattermost,
+} from '../inc/rh/mattermost.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
 const router = express.Router();
@@ -599,6 +602,145 @@ router.delete('/:id/tfa', handleResponse(async (req) => {
 router.delete('/:id/tfa/devices', handleResponse(async (req) => {
     exigerAccesTfa(req);
     return { revoques: await revoquerAppareils(req.params.id) };
+}));
+
+
+/* ------------------------------------------------------------------ */
+/* Compte Mattermost                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Le compte Mattermost d'un utilisateur concerne l'utilisateur lui-même, les
+ * admins (qui donnent le droit sur la fiche) et les appels machine de
+ * confiance (jeton statique : le SSO, sogest sans JWT).
+ */
+function exigerAccesMattermost(req) {
+    if (!isAdminRequest(req) && Number(req.user?.id) !== Number(req.params.id)) {
+        throw httpError(403, 'non_habilite', 'Accès réservé à l\'utilisateur lui-même et aux admins.');
+    }
+}
+
+/**
+ * Une erreur de Mattermost (mot de passe refusé, instance injoignable…) est
+ * rendue en 502 avec son message : son statut propre (401, 403…) serait pris
+ * pour un refus de sogest-api.
+ */
+async function appelMattermost(fn) {
+    try {
+        return await fn();
+    } catch (e) {
+        if (e.errorCode) throw e;
+        throw httpError(502, 'mattermost', e.message);
+    }
+}
+
+/**
+ * @openapi
+ * /users/{id}/mattermost:
+ *   get:
+ *     tags: [Users]
+ *     summary: État du compte Mattermost d'un utilisateur
+ *     description: |
+ *       Simple lecture, sans appel à Mattermost. `acces` : droit donné sur la
+ *       fiche (`users.mattermost`) ; `id` : compte Mattermost connu (valeur liée
+ *       `id_mattermost`) ; `enAttente` : droit donné mais pas encore de compte.
+ *       Le SSO exige alors une connexion par mot de passe, pour créer le compte.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: État Mattermost du compte
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 acces:     { type: boolean }
+ *                 id:        { type: string, nullable: true }
+ *                 enAttente: { type: boolean }
+ *       403: { description: Réservé à l'utilisateur lui-même et aux admins }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.get('/:id/mattermost', handleResponse(async (req) => {
+    exigerAccesMattermost(req);
+    const etat = await getEtatMattermost(req.params.id);
+    if (!etat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
+    return etat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/mattermost/recherche:
+ *   post:
+ *     tags: [Users]
+ *     summary: Rechercher le compte Mattermost d'un utilisateur
+ *     description: |
+ *       Cherche dans Mattermost un compte portant l'email Mattermost de la fiche
+ *       (valeur liée `email_mattermost`, sinon l'email principal) et, s'il
+ *       existe, mémorise son id. Ne crée rien. Réservé aux admins.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "État Mattermost du compte, comme GET /users/{id}/mattermost" }
+ *       403: { description: Réservé aux admins }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       502: { description: Mattermost a refusé la requête ou ne répond pas }
+ */
+router.post('/:id/mattermost/recherche', handleResponse(async (req) => {
+    if (!isAdminRequest(req)) {
+        throw httpError(403, 'non_habilite', 'Accès réservé aux admins.');
+    }
+    const etat = await appelMattermost(() => rechercherCompteMattermost(req.params.id));
+    if (!etat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
+    return etat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/mattermost/password:
+ *   put:
+ *     tags: [Users]
+ *     summary: Synchroniser le mot de passe vers Mattermost
+ *     description: |
+ *       Donne au compte Mattermost le mot de passe que l'utilisateur vient de
+ *       définir dans sogest. Sans droit Mattermost ou sans compte Mattermost,
+ *       ne fait rien (`synchronise: false`) : le compte sera créé avec ce
+ *       mot de passe à la prochaine connexion.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200:
+ *         description: Résultat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 synchronise: { type: boolean }
+ *                 id:          { type: string, nullable: true }
+ *       400: { $ref: '#/components/responses/BadRequest' }
+ *       403: { description: Réservé à l'utilisateur lui-même et aux admins }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       502: { description: Mattermost a refusé le mot de passe ou ne répond pas }
+ */
+router.put('/:id/mattermost/password', handleResponse(async (req) => {
+    exigerAccesMattermost(req);
+    const password = req.body?.password;
+    if (!password || typeof password !== 'string') {
+        throw httpError(400, 'password_requis', 'Le mot de passe est requis.');
+    }
+    const resultat = await appelMattermost(() => synchroMotDePasseMattermost(req.params.id, password));
+    if (!resultat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
+    return resultat;
 }));
 
 /**
