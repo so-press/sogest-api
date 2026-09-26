@@ -1,10 +1,12 @@
 {
   "tokens": {
     "internal-service": "",
-    "dev": ""
+    "dev": "",
+    "mattermost-plugin": ""
   },
   "tokenScopes": {
-    "internal-service": { "equipes": [4019, 4172] }
+    "internal-service": { "equipes": [4019, 4172] },
+    "mattermost-plugin": { "routes": ["/mattermost"] }
   },
   "allowedFileTypes": [
     "image/jpeg",

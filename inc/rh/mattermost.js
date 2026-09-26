@@ -19,6 +19,12 @@ import { setUserLink } from './users.js';
  * Un utilisateur est « en attente » s'il a le droit mais pas encore d'id : son
  * compte sera créé à sa prochaine connexion par mot de passe, seul moment où
  * l'on dispose du mot de passe en clair ({@link creerCompteMattermost}).
+ *
+ * Un compte « synchronisé » (`users.mattermost_sync`) porte l'email principal
+ * de sogest et reçoit chaque mot de passe saisi dans sogest. Les comptes créés
+ * par sogest le sont d'office ; un compte qui existait déjà se le voit
+ * proposer par le bot du plugin com.sopress.sogest-login, et un refus
+ * (`users.mattermost_sync_refus`) n'est reproposé qu'une semaine plus tard.
  */
 
 const TIMEOUT_MS = 5000;
@@ -80,7 +86,8 @@ async function lireCompte(userId) {
 
     const u = await db('users as u')
         .leftJoin('personnes as p', 'u.personne_id', 'p.id')
-        .select('u.id', 'u.email', 'u.nom', 'u.mattermost', 'p.prenom', 'p.nom as nomFamille')
+        .select('u.id', 'u.email', 'u.nom', 'u.mattermost', 'u.mattermost_sync', 'u.mattermost_sync_refus',
+            'p.prenom', 'p.nom as nomFamille')
         .where('u.id', userId)
         .where('u.trash', '<>', 1)
         .andWhere('u.actif', 1)
@@ -96,8 +103,11 @@ async function lireCompte(userId) {
     return {
         userId: Number(u.id),
         acces: Number(u.mattermost) === 1,
+        synchro: Number(u.mattermost_sync) === 1,
+        refus: u.mattermost_sync_refus ? new Date(u.mattermost_sync_refus) : null,
         id: link.id_mattermost || null,
         email: link.email_mattermost || u.email,
+        emailPrincipal: u.email,
         nom: u.nom || '',
         prenom: u.prenom || '',
         nomFamille: u.nomFamille || '',
@@ -109,12 +119,17 @@ async function lireCompte(userId) {
  * chaque connexion pour savoir s'il doit exiger le mot de passe.
  *
  * @param {number} userId
- * @returns {Promise<{acces:boolean, id:string|null, enAttente:boolean}|null>}
+ * @returns {Promise<{acces:boolean, id:string|null, enAttente:boolean, synchro:boolean}|null>}
  */
 export async function getEtatMattermost(userId) {
     const compte = await lireCompte(userId);
     if (!compte) return null;
-    return { acces: compte.acces, id: compte.id, enAttente: compte.acces && !compte.id };
+    return {
+        acces: compte.acces,
+        id: compte.id,
+        enAttente: compte.acces && !compte.id,
+        synchro: compte.synchro,
+    };
 }
 
 /**
@@ -187,8 +202,10 @@ async function idEquipe() {
 
 /**
  * A — Crée le compte Mattermost d'un utilisateur sogest avec ce mot de passe,
- * l'ajoute à l'équipe MATTERMOST_TEAM et mémorise son id. Si un compte porte
- * déjà son email, on en mémorise l'id sans rien modifier côté Mattermost.
+ * l'ajoute à l'équipe MATTERMOST_TEAM et mémorise son id. Créé avec l'email
+ * principal et le mot de passe de sogest, le compte est synchronisé d'office.
+ * Si un compte porte déjà son email (Mattermost ou principal), on en mémorise
+ * l'id sans rien modifier côté Mattermost : c'est au bot de proposer la synchro.
  *
  * Le mot de passe doit avoir été vérifié par l'appelant : c'est celui que la
  * personne vient de saisir pour se connecter.
@@ -201,20 +218,22 @@ export async function creerCompteMattermost(userId, password) {
     const compte = await lireCompte(userId);
     if (!compte) return null;
 
-    const existant = await trouverCompteMattermost(compte.email);
+    const existant = await trouverCompteMattermost(compte.email)
+        ?? (compte.email !== compte.emailPrincipal ? await trouverCompteMattermost(compte.emailPrincipal) : null);
     if (existant) {
         await setUserLink(compte.userId, 'id_mattermost', existant);
         return existant;
     }
 
     const cree = await mattermost('/users', 'POST', {
-        email: compte.email,
+        email: compte.emailPrincipal,
         username: await usernameMattermostLibre(compte.nom),
         password,
         first_name: compte.prenom,
         last_name: compte.nomFamille,
     });
     await setUserLink(compte.userId, 'id_mattermost', cree.id);
+    await marquerSynchronise(compte.userId);
 
     // Sans équipe, la personne arriverait sur une instance vide ; mais un échec
     // ici ne doit pas défaire un compte déjà créé.
@@ -229,9 +248,10 @@ export async function creerCompteMattermost(userId, password) {
 }
 
 /**
- * B — Donne ce mot de passe au compte Mattermost d'un utilisateur sogest qui a
- * le droit Mattermost. Sans ce droit, ou sans compte Mattermost, ne fait rien : l'utilisateur reste en attente, et son
- * compte sera créé avec ce même mot de passe à sa prochaine connexion.
+ * B — Donne ce mot de passe au compte Mattermost d'un utilisateur sogest, si ce
+ * compte est synchronisé. Sinon ne fait rien : un compte en attente sera créé
+ * avec ce même mot de passe à la prochaine connexion, et un compte existant
+ * garde le sien tant que la personne n'a pas accepté la synchro.
  *
  * @param {number} userId
  * @param {string} password  mot de passe en clair
@@ -240,14 +260,86 @@ export async function creerCompteMattermost(userId, password) {
 export async function synchroMotDePasseMattermost(userId, password) {
     const compte = await lireCompte(userId);
     if (!compte) return null;
-    if (!compte.acces) return { synchronise: false, id: compte.id };
+    if (!compte.acces || !compte.synchro || !compte.id) return { synchronise: false, id: compte.id };
 
-    const id = await trouverCompteMattermost(compte.email);
-    if (!id) return { synchronise: false, id: null };
-    if (id !== compte.id) await setUserLink(compte.userId, 'id_mattermost', id);
+    await mattermost(`/users/${compte.id}/password`, 'PUT', { new_password: password });
+    return { synchronise: true, id: compte.id };
+}
 
-    await mattermost(`/users/${id}/password`, 'PUT', { new_password: password });
-    return { synchronise: true, id };
+/* ------------------------------------------------------------------ */
+/* Synchro des comptes existants (bot du plugin com.sopress.sogest-login) */
+/* ------------------------------------------------------------------ */
+
+// Délai avant de reproposer la synchro à qui l'a refusée.
+const SYNCHRO_DELAI_REFUS_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function marquerSynchronise(userId) {
+    await db('users').where('id', userId).update({ mattermost_sync: 1, mattermost_sync_refus: null });
+}
+
+/** Utilisateur sogest actif relié à ce compte Mattermost (valeur liée `id_mattermost`). */
+async function userIdParCompteMattermost(idMattermost) {
+    if (!idMattermost) return null;
+    const lien = await db('links as l')
+        .join('users as u', db.raw('u.id = CAST(l.cle AS UNSIGNED)'))
+        .select('u.id')
+        .where({ 'l.table': 'users', 'l.champ': 'id_mattermost', 'l.valeur': idMattermost })
+        .where('u.trash', '<>', 1)
+        .andWhere('u.actif', 1)
+        .first();
+    return lien ? Number(lien.id) : null;
+}
+
+/**
+ * Le plugin doit-il proposer la synchro à ce compte Mattermost, qui vient de se
+ * connecter ? Oui s'il est relié à un utilisateur sogest qui a le droit, qu'il
+ * n'est pas encore synchronisé, et qu'il ne l'a pas refusée depuis moins d'une
+ * semaine.
+ *
+ * @param {string} idMattermost
+ * @returns {Promise<{relie:boolean, synchro:boolean, aProposer:boolean}>}
+ */
+export async function etatSynchroCompteMattermost(idMattermost) {
+    const userId = await userIdParCompteMattermost(idMattermost);
+    const compte = userId ? await lireCompte(userId) : null;
+    if (!compte || !compte.acces) return { relie: false, synchro: false, aProposer: false };
+
+    const refusRecent = compte.refus && (Date.now() - compte.refus.getTime()) < SYNCHRO_DELAI_REFUS_MS;
+    return { relie: true, synchro: compte.synchro, aProposer: !compte.synchro && !refusRecent };
+}
+
+/**
+ * Réponse d'un compte Mattermost à la proposition de synchro.
+ *
+ * Oui : le compte Mattermost prend l'email principal de sogest (la valeur liée
+ * `email_mattermost` n'a plus lieu d'être et disparaît) et devient synchronisé.
+ * Son mot de passe deviendra celui de sogest à la prochaine saisie dans sogest.
+ * Non : le refus est daté, pour ne reproposer que dans une semaine.
+ *
+ * @param {string} idMattermost
+ * @param {boolean} accepte
+ * @returns {Promise<{relie:boolean, synchro:boolean}>}
+ */
+export async function repondreSynchroMattermost(idMattermost, accepte) {
+    const userId = await userIdParCompteMattermost(idMattermost);
+    const compte = userId ? await lireCompte(userId) : null;
+    if (!compte || !compte.acces) return { relie: false, synchro: false };
+    if (compte.synchro) return { relie: true, synchro: true };
+
+    if (!accepte) {
+        await db('users').where('id', compte.userId).update({ mattermost_sync_refus: db.fn.now() });
+        return { relie: true, synchro: false };
+    }
+
+    const actuel = await mattermost('/users/' + encodeURIComponent(idMattermost));
+    if (!actuel) throw new Error('Compte Mattermost introuvable');
+    if (String(actuel.email).toLowerCase() !== String(compte.emailPrincipal).toLowerCase()) {
+        // Échoue (400) si un autre compte Mattermost porte déjà cet email.
+        await mattermost(`/users/${idMattermost}/patch`, 'PUT', { email: compte.emailPrincipal });
+    }
+    await db('links').where({ table: 'users', cle: String(compte.userId), champ: 'email_mattermost' }).del();
+    await marquerSynchronise(compte.userId);
+    return { relie: true, synchro: true };
 }
 
 // Durée de vie d'un lien de connexion : le temps d'une redirection.

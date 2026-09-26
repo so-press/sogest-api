@@ -9,6 +9,20 @@ const tokens = Object.values(config.tokens);
 // le périmètre d'un jeton applicatif (cf. `tokenScopes` dans config.json et
 // `isEquipeWritableByRequest()` dans inc/core/access.js).
 const tokenNames = new Map(Object.entries(config.tokens).map(([name, value]) => [value, name]));
+// Routes auxquelles un jeton applicatif est cantonné, s'il y en a :
+//   "tokenScopes": { "mattermost-plugin": { "routes": ["/mattermost"] } }
+// Sans `routes`, le jeton garde l'accès à toute l'API (comportement historique).
+const tokenRoutes = Object.fromEntries(
+  Object.entries(config.tokenScopes || {})
+    .filter(([, scope]) => Array.isArray(scope.routes))
+    .map(([name, scope]) => [name, scope.routes])
+);
+
+function routeAutorisee(name, path) {
+  const routes = tokenRoutes[name];
+  if (!routes) return true;
+  return routes.some((r) => path === r || path.startsWith(r + '/'));
+}
 
 // Auth middleware
 export async function authMiddleware(req, res, next) {
@@ -22,6 +36,9 @@ export async function authMiddleware(req, res, next) {
   if (tokens.includes(token)) {
     req.isJwt = false;
     req.tokenName = tokenNames.get(token) || null;
+    if (!routeAutorisee(req.tokenName, req.path)) {
+      return res.status(403).json({ error: 'Unauthorized: route hors du périmètre de ce jeton' });
+    }
     return next();
   }
 
