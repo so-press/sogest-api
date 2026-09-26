@@ -21,9 +21,6 @@ const PUBLIC_FIELDS = [
   // pour résoudre le rôle de l'utilisateur connecté. Objet indexé par client_id :
   //   { "<client_id>": { acces_mode, droits:[{user_id, role}] } }
   'ssoclients.droits',
-  // Périmètres (client_id principal ou variantes) en mode Mattermost, liste JSON.
-  // Projetée en booléen sur le client demandé (cf. projectMattermost).
-  'ssoclients.mattermost',
   // Config Sign in with Google (source d'auth `google`) — consommée par le SSO.
   // L'entité accordée = slug du support rattaché (pas de colonne dédiée).
   'ssoclients.google_oauth_client_id', 'ssoclients.google_publication_id',
@@ -47,18 +44,6 @@ function projectDroits(droits, clientId) {
 }
 
 /**
- * Vrai si `clientId` (client principal ou variante) figure dans la liste des
- * périmètres en mode Mattermost.
- *
- * @param {string[]} mattermost
- * @param {string} clientId
- * @returns {boolean}
- */
-function projectMattermost(mattermost, clientId) {
-  return Array.isArray(mattermost) && mattermost.includes(clientId);
-}
-
-/**
  * Haché du secret propre à une variante, ou `null` si elle n'en a pas : elle
  * s'authentifie alors avec le secret du client principal.
  *
@@ -74,7 +59,7 @@ async function varianteSecretHash(secrets, clientId) {
 async function formatSsoclient(row) {
   if (!row) return row;
 
-  for (const field of ['redirect_uris', 'urls', 'auth_sources', 'variantes', 'mattermost']) {
+  for (const field of ['redirect_uris', 'urls', 'auth_sources', 'variantes']) {
     if (typeof row[field] === 'string') {
       try { row[field] = JSON.parse(row[field]); } catch { row[field] = []; }
     }
@@ -140,8 +125,6 @@ export async function getSsoclients() {
 
   const entries = [];
   for (const client of clients) {
-    const mattermost = client.mattermost;
-    client.mattermost = projectMattermost(mattermost, client.client_id);
     const secrets = client.variantes_secrets;
     delete client.variantes_secrets;
     entries.push(client);
@@ -153,7 +136,6 @@ export async function getSsoclients() {
       projected.client_id = variante.clientId;
       projected.subtitle = variante.clientName;
       projected.base_url = variante.url;
-      projected.mattermost = projectMattermost(mattermost, variante.clientId);
       projected.client_secret_hash = await varianteSecretHash(secrets, variante.clientId) ?? client.client_secret_hash;
       delete projected.variantes;
       entries.push(projected);
@@ -189,7 +171,6 @@ export async function getSsoclient(idOrClientId) {
   if (direct) {
     const formatted = await formatSsoclient(direct);
     formatted.droits = projectDroits(formatted.droits, formatted.client_id);
-    formatted.mattermost = projectMattermost(formatted.mattermost, formatted.client_id);
     delete formatted.variantes_secrets;
     return formatted;
   }
@@ -215,7 +196,6 @@ console.warn(`SSO client not found by ${isNumeric ? 'id' : 'client_id'}:`, idOrC
       formatted.subtitle = match.clientName;
       formatted.base_url = match.url;
       formatted.droits = projectDroits(formatted.droits, match.clientId);
-      formatted.mattermost = projectMattermost(formatted.mattermost, match.clientId);
       formatted.client_secret_hash = await varianteSecretHash(formatted.variantes_secrets, match.clientId) ?? formatted.client_secret_hash;
       delete formatted.variantes_secrets;
       delete formatted.variantes;
