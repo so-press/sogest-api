@@ -3,7 +3,7 @@ import sharp from 'sharp';
 import { AVATAR_SIZES, getUser, getUsers, getUserAvatar, setUserLink, getUserLinks, isReservedUserField, getUserCapabilities } from '../inc/rh/users.js';
 import { getEquipesByUserId } from '../inc/rh/equipes.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
-import { isAdminRequest, isUltraAdminRequest } from '../inc/core/access.js';
+import { isAdminRequest, isUltraAdminRequest, resolveAuteur } from '../inc/core/access.js';
 import {
     getTfaEtat, demarrerEnrolement, confirmerEnrolement, verifierCode,
     envoyerCodeSms, genererCodesSecours, confierAppareil, appareilDeConfiance,
@@ -11,6 +11,7 @@ import {
 } from '../inc/rh/tfa.js';
 import {
     getEtatMattermost, rechercherCompteMattermost, synchroMotDePasseMattermost,
+    lienConnexionMattermost,
 } from '../inc/rh/mattermost.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -741,6 +742,49 @@ router.put('/:id/mattermost/password', handleResponse(async (req) => {
     const resultat = await appelMattermost(() => synchroMotDePasseMattermost(req.params.id, password));
     if (!resultat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
     return resultat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/mattermost/lien:
+ *   post:
+ *     tags: [Users]
+ *     summary: Lien de connexion à Mattermost sans mot de passe
+ *     description: |
+ *       Rend une URL qui connecte l'utilisateur à Mattermost via le plugin
+ *       serveur `com.sopress.sogest-login` : un jeton signé (HS256,
+ *       `MATTERMOST_LIEN_SECRET`) valable une minute et à usage unique.
+ *
+ *       Réservé à l'utilisateur **lui-même** : son JWT, ou le jeton applicatif
+ *       qui le désigne par `X-Auteur-User-Id`. Un admin ne peut pas obtenir le
+ *       lien d'un autre compte.
+ *
+ *       `url` est null sans droit Mattermost, ou tant que le compte n'est pas
+ *       créé (`enAttente` : il le sera à la prochaine connexion par mot de passe).
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Lien, ou raison de son absence
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:       { type: string, nullable: true }
+ *                 acces:     { type: boolean }
+ *                 enAttente: { type: boolean }
+ *       403: { description: Réservé à l'utilisateur lui-même }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.post('/:id/mattermost/lien', handleResponse(async (req) => {
+    const auteur = await resolveAuteur(req);
+    if (!auteur || Number(auteur.id) !== Number(req.params.id)) {
+        throw httpError(403, 'non_habilite', 'Un lien de connexion ne se demande que pour soi-même.');
+    }
+    const lien = await lienConnexionMattermost(req.params.id);
+    if (!lien) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
+    return lien;
 }));
 
 /**

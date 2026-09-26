@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+import jwt from 'jsonwebtoken';
 import { db } from '../../db.js';
 import { slugify } from '../core/utils.js';
 import { setUserLink } from './users.js';
@@ -246,4 +248,46 @@ export async function synchroMotDePasseMattermost(userId, password) {
 
     await mattermost(`/users/${id}/password`, 'PUT', { new_password: password });
     return { synchronise: true, id };
+}
+
+// Durée de vie d'un lien de connexion : le temps d'une redirection.
+const LIEN_DUREE_SECONDES = 60;
+const LIEN_SECRET_LONGUEUR_MIN = 32;
+const PLUGIN_CONNEXION = 'com.sopress.sogest-login';
+
+/**
+ * Lien qui connecte un utilisateur à Mattermost sans mot de passe, par le
+ * plugin serveur com.sopress.sogest-login : un JWT HS256 signé avec
+ * MATTERMOST_LIEN_SECRET (partagé avec le plugin), qui désigne le compte
+ * Mattermost, valable une minute et à usage unique (jti, vérifié par le plugin).
+ *
+ * @param {number} userId
+ * @returns {Promise<{url:string|null, enAttente:boolean, acces:boolean}|null>}
+ *   url null si l'utilisateur n'a pas le droit ou pas encore de compte ;
+ *   null si l'utilisateur est inconnu
+ */
+export async function lienConnexionMattermost(userId) {
+    const compte = await lireCompte(userId);
+    if (!compte) return null;
+    if (!compte.acces || !compte.id) {
+        return { url: null, acces: compte.acces, enAttente: compte.acces && !compte.id };
+    }
+
+    const secret = process.env.MATTERMOST_LIEN_SECRET || '';
+    if (secret.length < LIEN_SECRET_LONGUEUR_MIN) {
+        throw new Error('MATTERMOST_LIEN_SECRET absente ou trop courte');
+    }
+
+    const jeton = jwt.sign({}, secret, {
+        algorithm: 'HS256',
+        subject: compte.id,
+        jwtid: crypto.randomUUID(),
+        expiresIn: LIEN_DUREE_SECONDES,
+    });
+    const base = (process.env.MATTERMOST_URL || '').replace(/\/+$/, '');
+    return {
+        url: `${base}/plugins/${PLUGIN_CONNEXION}/connexion?jeton=${encodeURIComponent(jeton)}`,
+        acces: true,
+        enAttente: false,
+    };
 }
