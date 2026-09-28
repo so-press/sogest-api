@@ -10,7 +10,7 @@ import {
     revoquerAppareils, reinitialiserTfa,
 } from '../inc/rh/tfa.js';
 import {
-    getEtatMattermost, rechercherCompteMattermost, lienConnexionMattermost,
+    getEtatMattermost, rechercherCompteMattermost, creerCompteMattermost, lienConnexionMattermost,
 } from '../inc/rh/mattermost.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -691,6 +691,40 @@ router.post('/:id/mattermost/recherche', handleResponse(async (req) => {
     const etat = await appelMattermost(() => rechercherCompteMattermost(req.params.id));
     if (!etat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
     return etat;
+}));
+
+/**
+ * @openapi
+ * /users/{id}/mattermost/compte:
+ *   post:
+ *     tags: [Users]
+ *     summary: Créer le compte Mattermost d'un utilisateur
+ *     description: |
+ *       Rattache le compte Mattermost de l'utilisateur s'il existe (email
+ *       Mattermost, sinon principal), le crée sinon, avec un mot de passe
+ *       aléatoire, dans l'équipe MATTERMOST_TEAM. Sans attendre son premier clic
+ *       sur le lien « Mattermost » de sogest. Exige le droit Mattermost sur la
+ *       fiche. Réservé aux admins.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: "État Mattermost du compte, comme GET /users/{id}/mattermost" }
+ *       403: { description: Réservé aux admins }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409: { description: L'utilisateur n'a pas le droit Mattermost }
+ *       502: { description: Mattermost a refusé la création du compte ou ne répond pas }
+ */
+router.post('/:id/mattermost/compte', handleResponse(async (req) => {
+    if (!isAdminRequest(req)) {
+        throw httpError(403, 'non_habilite', 'Accès réservé aux admins.');
+    }
+    const etat = await getEtatMattermost(req.params.id);
+    if (!etat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
+    if (!etat.acces) throw httpError(409, 'sans_acces', 'Cet utilisateur n\'a pas le droit Mattermost.');
+    if (etat.id) return etat;
+
+    await appelMattermost(() => creerCompteMattermost(req.params.id));
+    return getEtatMattermost(req.params.id);
 }));
 
 /**

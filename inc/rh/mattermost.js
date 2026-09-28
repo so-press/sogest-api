@@ -21,7 +21,8 @@ import { setUserLink } from './users.js';
  * com.sopress.sogest-login ({@link lienConnexionMattermost}). Le compte est
  * rattaché à ce moment-là s'il existe, créé sinon, avec un mot de passe
  * aléatoire : pour l'application mobile, la personne s'en définit un par le
- * « Mot de passe oublié » de Mattermost.
+ * « Mot de passe oublié » de Mattermost. Un admin peut aussi le faire créer
+ * sans attendre ce premier clic (POST /users/{id}/mattermost/compte).
  */
 
 const TIMEOUT_MS = 5000;
