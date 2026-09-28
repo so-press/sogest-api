@@ -10,8 +10,7 @@ import {
     revoquerAppareils, reinitialiserTfa,
 } from '../inc/rh/tfa.js';
 import {
-    getEtatMattermost, rechercherCompteMattermost, synchroMotDePasseMattermost,
-    lienConnexionMattermost,
+    getEtatMattermost, rechercherCompteMattermost, lienConnexionMattermost,
 } from '../inc/rh/mattermost.js';
 import { jwtOnlyMiddleware } from '../inc/middleware/jwt.js';
 
@@ -613,7 +612,7 @@ router.delete('/:id/tfa/devices', handleResponse(async (req) => {
 /**
  * Le compte Mattermost d'un utilisateur concerne l'utilisateur lui-même, les
  * admins (qui donnent le droit sur la fiche) et les appels machine de
- * confiance (jeton statique : le SSO, sogest sans JWT).
+ * confiance (jeton statique : sogest sans JWT).
  */
 function exigerAccesMattermost(req) {
     if (!isAdminRequest(req) && Number(req.user?.id) !== Number(req.params.id)) {
@@ -643,9 +642,8 @@ async function appelMattermost(fn) {
  *     summary: État du compte Mattermost d'un utilisateur
  *     description: |
  *       Simple lecture, sans appel à Mattermost. `acces` : droit donné sur la
- *       fiche (`users.mattermost`) ; `id` : compte Mattermost connu (valeur liée
- *       `id_mattermost`) ; `enAttente` : droit donné mais pas encore de compte.
- *       Le SSO exige alors une connexion par mot de passe, pour créer le compte.
+ *       fiche (`users.mattermost`) ; `id` : compte Mattermost rattaché (valeur
+ *       liée `id_mattermost`).
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
@@ -656,9 +654,8 @@ async function appelMattermost(fn) {
  *             schema:
  *               type: object
  *               properties:
- *                 acces:     { type: boolean }
- *                 id:        { type: string, nullable: true }
- *                 enAttente: { type: boolean }
+ *                 acces: { type: boolean }
+ *                 id:    { type: string, nullable: true }
  *       403: { description: Réservé à l'utilisateur lui-même et aux admins }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
@@ -698,54 +695,6 @@ router.post('/:id/mattermost/recherche', handleResponse(async (req) => {
 
 /**
  * @openapi
- * /users/{id}/mattermost/password:
- *   put:
- *     tags: [Users]
- *     summary: Synchroniser le mot de passe vers Mattermost
- *     description: |
- *       Donne au compte Mattermost le mot de passe que l'utilisateur vient de
- *       définir dans sogest. Sans droit Mattermost ou sans compte Mattermost,
- *       ne fait rien (`synchronise: false`) : le compte sera créé avec ce
- *       mot de passe à la prochaine connexion.
- *     parameters:
- *       - { in: path, name: id, required: true, schema: { type: integer } }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [password]
- *             properties:
- *               password: { type: string, format: password }
- *     responses:
- *       200:
- *         description: Résultat
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 synchronise: { type: boolean }
- *                 id:          { type: string, nullable: true }
- *       400: { $ref: '#/components/responses/BadRequest' }
- *       403: { description: Réservé à l'utilisateur lui-même et aux admins }
- *       404: { $ref: '#/components/responses/NotFound' }
- *       502: { description: Mattermost a refusé le mot de passe ou ne répond pas }
- */
-router.put('/:id/mattermost/password', handleResponse(async (req) => {
-    exigerAccesMattermost(req);
-    const password = req.body?.password;
-    if (!password || typeof password !== 'string') {
-        throw httpError(400, 'password_requis', 'Le mot de passe est requis.');
-    }
-    const resultat = await appelMattermost(() => synchroMotDePasseMattermost(req.params.id, password));
-    if (!resultat) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
-    return resultat;
-}));
-
-/**
- * @openapi
  * /users/{id}/mattermost/lien:
  *   post:
  *     tags: [Users]
@@ -759,8 +708,9 @@ router.put('/:id/mattermost/password', handleResponse(async (req) => {
  *       qui le désigne par `X-Auteur-User-Id`. Un admin ne peut pas obtenir le
  *       lien d'un autre compte.
  *
- *       `url` est null sans droit Mattermost, ou tant que le compte n'est pas
- *       créé (`enAttente` : il le sera à la prochaine connexion par mot de passe).
+ *       Sans compte Mattermost rattaché, le compte est rattaché s'il existe
+ *       (email Mattermost, sinon principal), créé sinon, avec un mot de passe
+ *       aléatoire. `url` est null sans droit Mattermost.
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
@@ -771,18 +721,18 @@ router.put('/:id/mattermost/password', handleResponse(async (req) => {
  *             schema:
  *               type: object
  *               properties:
- *                 url:       { type: string, nullable: true }
- *                 acces:     { type: boolean }
- *                 enAttente: { type: boolean }
+ *                 url:   { type: string, nullable: true }
+ *                 acces: { type: boolean }
  *       403: { description: Réservé à l'utilisateur lui-même }
  *       404: { $ref: '#/components/responses/NotFound' }
+ *       502: { description: Mattermost a refusé la création du compte ou ne répond pas }
  */
 router.post('/:id/mattermost/lien', handleResponse(async (req) => {
     const auteur = await resolveAuteur(req);
     if (!auteur || Number(auteur.id) !== Number(req.params.id)) {
         throw httpError(403, 'non_habilite', 'Un lien de connexion ne se demande que pour soi-même.');
     }
-    const lien = await lienConnexionMattermost(req.params.id);
+    const lien = await appelMattermost(() => lienConnexionMattermost(req.params.id));
     if (!lien) throw httpError(404, 'introuvable', 'Utilisateur introuvable');
     return lien;
 }));

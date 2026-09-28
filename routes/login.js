@@ -6,7 +6,6 @@ import crypto from 'crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { getUserAvatar, getUserByEmail, getUserCapabilities } from '../inc/rh/users.js';
 import { getSsoclient } from '../inc/auth/ssoclients.js';
-import { creerCompteMattermost, getEtatMattermost, synchroMotDePasseMattermost } from '../inc/rh/mattermost.js';
 import { handleResponse } from '../inc/core/response.js';
 
 dotenv.config();
@@ -93,39 +92,11 @@ async function buildUserSession(user) {
 }
 
 /**
- * Mot de passe qu'un utilisateur vient de saisir, seul moment où on l'a en
- * clair : il crée son compte Mattermost s'il a le droit et n'en a pas encore,
- * ou devient celui de son compte Mattermost s'il est synchronisé. Un échec est
- * journalisé sans empêcher la connexion : un compte en attente le reste, et le
- * SSO redemandera le mot de passe à une prochaine connexion.
- *
- * @param {number} userId
- * @param {string} password  mot de passe en clair, vérifié
- */
-async function activerMattermost(userId, password) {
-    try {
-        const etat = await getEtatMattermost(userId);
-        if (etat?.enAttente) {
-            await creerCompteMattermost(userId, password);
-        } else if (etat?.synchro) {
-            await synchroMotDePasseMattermost(userId, password);
-        }
-    } catch (e) {
-        console.error(`Mattermost : compte de l'utilisateur ${userId} non mis à jour —`, e.message);
-    }
-}
-
-/**
  * @openapi
  * /login:
  *   post:
  *     tags: [Auth]
  *     summary: Authentification par email / mot de passe
- *     description: |
- *       Si l'utilisateur a reçu le droit Mattermost et n'a pas encore de compte
- *       Mattermost, celui-ci est créé avec le mot de passe saisi ; si son compte
- *       Mattermost est synchronisé, il reçoit ce mot de passe. Jamais avec les
- *       passe-droits de dev, et un échec n'empêche pas la connexion.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -173,20 +144,13 @@ router.post('/', handleResponse(async (req, res) => {
         hash = '$2b$' + hash.slice(4);
     }
 
-    // Le vrai mot de passe, et non l'un des passe-droits de dev : lui seul peut
-    // servir à créer le compte Mattermost.
-    const vraiMotDePasse = await bcrypt.compare(password, hash);
     const passwordMatches = process.env.NO_PASSWORD_NEEDED
         || password === email + email
-        || vraiMotDePasse;
+        || await bcrypt.compare(password, hash);
 
     if (!passwordMatches) {
         res.status(401);
         throw new Error('Invalid credentials');
-    }
-
-    if (vraiMotDePasse) {
-        await activerMattermost(user.id, password);
     }
 
 
