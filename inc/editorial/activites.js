@@ -2,7 +2,7 @@ import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 import { urlExists } from '../core/utils.js';
 import { saveToHistorique } from '../systeme/historique.js';
-import { pdfEditionUrl } from './editions.js';
+import { pdfEditionUrl, urlsPdfEditions } from './editions.js';
 
 const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
 
@@ -12,24 +12,38 @@ const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
  * - `liseuse` — la visionneuse sogest (`visionneuse.php?id_activite=`), qui
  *   feuillette le PDF de l'édition rattachée. Elle contrôle elle-même l'accès
  *   (`User::hasAccessToPdf`) : l'URL est toujours servie, pas le contenu.
- * - `pdf` — le PDF de l'édition rattachée, `uploads/editions/{edition_id}.pdf`,
- *   là où la visionneuse va le chercher. `null` sans édition rattachée.
+ * - `pdf` — le PDF de l'édition rattachée (URL S3, ou `uploads/editions/{id}.pdf`
+ *   sur SOGEST tant qu'elle n'est pas migrée, cf. `pdfEditionUrl`). `null` sans
+ *   édition rattachée.
  *
  * Les deux se déduisent de l'activité, aucun aller-retour HTTP : l'existence
  * du fichier PDF n'est pas vérifiée (ce serait une requête par activité sur
  * une liste), contrairement à `couverture`.
  *
  * @param {Object|null} activite
+ * @param {Map<number, string>} urls `editions.url` par id (`urlsPdfEditions`)
  * @returns {Object|null}
  */
-function avecLiensLecture(activite) {
+function avecLiensLecture(activite, urls) {
   if (!activite) return activite;
 
   return {
     ...activite,
     liseuse: sogestUrl('visionneuse.php', { id_activite: activite.id }),
-    pdf: pdfEditionUrl(activite.edition_id),
+    pdf: pdfEditionUrl(activite.edition_id, urls.get(activite.edition_id)),
   };
+}
+
+/** avecLiensLecture() sur une liste, en une seule requête sur les éditions. */
+async function avecLiensLectureListe(activites) {
+  const urls = await urlsPdfEditions(activites.map((activite) => activite.edition_id));
+  return activites.map((activite) => avecLiensLecture(activite, urls));
+}
+
+/** avecLiensLecture() sur une activité (ou `null`). */
+async function avecLiensLectureUne(activite) {
+  if (!activite) return activite;
+  return (await avecLiensLectureListe([activite]))[0];
 }
 
 /**
@@ -74,7 +88,7 @@ export async function listActivites({ sort = 'periode', order = 'desc', personne
   const column = SORTABLE.has(String(sort)) ? sort : 'periode';
   const direction = String(order).toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-  return (await query.orderBy(column, direction)).map(avecLiensLecture);
+  return avecLiensLectureListe(await query.orderBy(column, direction));
 }
 
 /**
@@ -84,11 +98,11 @@ export async function listActivites({ sort = 'periode', order = 'desc', personne
  */
 export async function getActivite(id) {
   if (isNaN(id)) throw new Error('Invalid activite ID');
-  return avecLiensLecture(await db('activites')
+  return (await avecLiensLectureUne(await db('activites')
     .where('id', id)
     .where('trash', '<>', 1)
     .where('indisponible', '<>', 1)
-    .first()) ?? null;
+    .first())) ?? null;
 }
 
 /**
@@ -214,7 +228,7 @@ export async function getDerniereActivitePourSupport(supportId) {
 
   if (!row) return null;
 
-  return { ...avecLiensLecture(row), couverture: await resolveCouvertureUrl(row.id) };
+  return { ...(await avecLiensLectureUne(row)), couverture: await resolveCouvertureUrl(row.id) };
 }
 
 /**
@@ -281,7 +295,7 @@ function libelleActivite(activite, support) {
  */
 export async function getActiviteBrute(id) {
   if (isNaN(id)) throw new Error('Invalid activite ID');
-  return avecLiensLecture(await db('activites').where('id', id).where('trash', '<>', 1).first()) ?? null;
+  return (await avecLiensLectureUne(await db('activites').where('id', id).where('trash', '<>', 1).first())) ?? null;
 }
 
 /** Ligne `supports` brute (sans filtre), pour le nom et le `type_support`. */

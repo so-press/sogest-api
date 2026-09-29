@@ -2,24 +2,41 @@ import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 
 /**
- * URL du PDF d'une édition sur SOGEST. C'est là que va le chercher
- * `visionneuse.php`, et le seul endroit de l'API qui connaisse ce chemin :
- * les activités s'y adressent aussi, via leur `edition_id`.
+ * URL du PDF d'une édition : son URL S3 (`editions.url`, renseignée par SOGEST
+ * à l'upload ou par la migration `crons/editions_vers_s3.php`), sinon, pour une
+ * édition pas encore migrée, le fichier sur SOGEST (`uploads/editions/{id}.pdf`).
+ * C'est le seul endroit de l'API qui connaisse ce chemin : les activités s'y
+ * adressent aussi, via leur `edition_id`.
  *
  * L'existence du fichier n'est pas vérifiée — ce serait une requête HTTP par
  * édition sur une liste.
  *
  * @param {number|null} editionId
+ * @param {string|null} [url] `editions.url`
  * @returns {string|null} `null` sans édition
  */
-export function pdfEditionUrl(editionId) {
-  return editionId ? sogestUrl(`uploads/editions/${editionId}.pdf`) : null;
+export function pdfEditionUrl(editionId, url = null) {
+  if (!editionId) return null;
+  return url || sogestUrl(`uploads/editions/${editionId}.pdf`);
+}
+
+/**
+ * `editions.url` de plusieurs éditions, en une requête : pour les listes
+ * d'activités, qui ne portent que l'`edition_id`.
+ * @param {Array<number|null>} editionIds
+ * @returns {Promise<Map<number, string>>}
+ */
+export async function urlsPdfEditions(editionIds) {
+  const ids = [...new Set(editionIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const rows = await db('editions').select('id', 'url').whereIn('id', ids);
+  return new Map(rows.map((row) => [row.id, row.url]));
 }
 
 /** Ajoute à une édition l'URL complète de son PDF. */
 function avecPdf(edition) {
   if (!edition) return edition;
-  return { ...edition, pdf: pdfEditionUrl(edition.id) };
+  return { ...edition, pdf: pdfEditionUrl(edition.id, edition.url) };
 }
 
 const SORTABLE = new Set(['publication', 'modification', 'numero', 'id']);

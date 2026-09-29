@@ -12,8 +12,8 @@ export const routePath = '/editions';
  *     tags: [Editions]
  *     summary: Liste des éditions
  *     description: |
- *       Chaque édition porte `pdf`, l'URL complète de son fichier sur SOGEST
- *       (`uploads/editions/{id}.pdf`). L'existence du fichier n'est pas
+ *       Chaque édition porte `pdf`, l'URL complète de son fichier (sur S3, ou
+ *       `uploads/editions/{id}.pdf` sur SOGEST tant qu'elle n'est pas migrée). L'existence du fichier n'est pas
  *       vérifiée : c'est une URL déduite de l'édition.
  *     parameters:
  *       - { in: query, name: support, schema: { type: string }, description: Filtre sur le support (id numérique ou slug) }
@@ -58,7 +58,7 @@ router.get('/', handleResponse(async (req, res) => {
  *     tags: [Editions]
  *     summary: Détails d'une édition
  *     description: |
- *       La réponse porte `pdf`, l'URL complète du fichier sur SOGEST.
+ *       La réponse porte `pdf`, l'URL complète du fichier (S3, ou SOGEST tant qu'elle n'est pas migrée).
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
