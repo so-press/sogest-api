@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import cors from 'cors';
 import { setRequestContext } from './inc/core/request.js';
+import { httpError } from './inc/core/response.js';
 
 // routes
 import * as absences from './routes/absences.js';
@@ -118,12 +119,21 @@ app.use(cors({
       // Invalid origin format
     }
 
-    callback(new Error('Not allowed by CORS'));
+    callback(httpError(403, 'origine_non_autorisee', `Origine non autorisée par ALLOWED_DOMAINS : ${origin}`));
   },
   // Sans ça le navigateur masque l'en-tête au JS : le front ne pourrait pas
   // récupérer le nom de fichier renvoyé par /documents/:origin/:id/fichier.
   exposedHeaders: ['Content-Disposition'],
 }));
+
+// Origine refusée : un 403 explicite plutôt que la page 500 par défaut d'Express.
+// Le navigateur n'en laissera rien lire au JS (pas d'en-tête CORS), mais le code
+// et l'origine en cause apparaissent dans l'onglet réseau et dans les logs.
+app.use((err, req, res, next) => {
+  if (err.errorCode !== 'origine_non_autorisee') return next(err);
+  console.warn(`🚫 CORS : ${req.method} ${req.originalUrl} depuis ${req.headers.origin}`);
+  res.status(403).json({ error: err.errorCode, message: err.message });
+});
 
 
 // MySQL connection pool
