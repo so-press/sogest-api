@@ -31,6 +31,8 @@ import * as devises from './routes/devises.js';
 import * as endroits from './routes/endroits.js';
 import * as reservations from './routes/reservations.js';
 import * as mails from './routes/mails.js';
+import * as applications from './routes/applications.js';
+import * as groupesApplications from './routes/groupes_applications.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -57,7 +59,9 @@ const routes = {
   devises,
   endroits,
   reservations,
-  mails
+  mails,
+  applications,
+  groupesApplications
 };
 
 // Load environment variables
