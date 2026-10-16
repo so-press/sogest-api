@@ -156,6 +156,26 @@ orphelins, les activités dont `date_bouclage` tombe dans la période de parutio
 Le champ `rapprochement` vaut `numero`, `dates` ou `null`, et `activites` est
 toujours un tableau (un numéro peut porter plusieurs activités).
 
+### Diffusion des éditions PDF (So Librairie)
+
+`POST /editions/diffusion` (jeton applicatif statique seulement) crée une édition
+PDF comme « Envoyer PDF » puis « Envoyer » dans sogest : **tous les aiguillages du
+support**, `etat` = `ready`, et c'est le cron de sogest (`crons/editions.php`) qui
+envoie sur les FTP. Sans aiguillage, l'édition reste `waiting` (rien envoyé).
+
+- **Le PDF n'est pas téléversé par l'API** : sogest stocke ses PDF sur son S3 AWS,
+  pas sur celui de l'API. `editions.pdf_source` porte une URL de téléchargement
+  (lien présigné de So Librairie) que sogest rapatrie au premier besoin
+  (`edition_rapatrier_source()` via `get_edition_file()`), puis garde comme un PDF
+  déposé à la main.
+- **Pages jamais générées par sogest** : `genpages` -1 et `origine` = `sogest-api`
+  (`edition_depuis_api()` bloque toute demande de génération) ; « Voir les pages »
+  ouvre `solib_url`, la page du magazine dans So Librairie, et « Télécharger les
+  pages » disparaît.
+- Une seule édition non supprimée par `solib_url` : 409 `edition_existante`.
+
+Colonnes ajoutées par `sql/editions_diffusion.sql`.
+
 ### Réservation des endroits
 
 Un « endroit » n'est pas forcément un lieu : salle de réunion, salle de montage,
