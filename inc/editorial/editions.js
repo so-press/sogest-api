@@ -1,37 +1,125 @@
 import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 import { httpError } from '../core/response.js';
+import { apiBaseUrl } from '../core/request.js';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 /**
- * URL du PDF d'une édition : son URL S3 (`editions.url`, renseignée par SOGEST
- * à l'upload ou par la migration `crons/editions_vers_s3.php`), sinon, pour une
- * édition pas encore migrée, le fichier sur SOGEST (`uploads/editions/{id}.pdf`).
- * C'est le seul endroit de l'API qui connaisse ce chemin : les activités s'y
- * adressent aussi, via leur `edition_id`.
+ * URL du PDF d'une édition, **relayée par l'API** (`GET /editions/{id}/pdf`).
+ *
+ * Le fichier lui-même est sur le S3 de SOGEST (`editions.url`) ou, pour une
+ * édition pas encore migrée, dans `uploads/editions/{id}.pdf` sur SOGEST
+ * (cf. `sourcePdfEdition`). Ces adresses ne sont pas exposées : le bucket
+ * n'envoie aucun en-tête CORS, un front ne peut donc pas les lire. L'API, elle,
+ * exige le jeton comme partout et relaie le fichier.
  *
  * L'existence du fichier n'est pas vérifiée — ce serait une requête HTTP par
  * édition sur une liste.
  *
  * @param {number|null} editionId
- * @param {string|null} [url] `editions.url`
  * @returns {string|null} `null` sans édition
  */
-export function pdfEditionUrl(editionId, url = null) {
+export function pdfEditionUrl(editionId) {
   if (!editionId) return null;
-  return url || sogestUrl(`uploads/editions/${editionId}.pdf`);
+  return `${apiBaseUrl()}/editions/${encodeURIComponent(editionId)}/pdf`;
 }
 
 /**
- * `editions.url` de plusieurs éditions, en une requête : pour les listes
- * d'activités, qui ne portent que l'`edition_id`.
- * @param {Array<number|null>} editionIds
- * @returns {Promise<Map<number, string>>}
+ * Adresse réelle du PDF d'une édition : son URL S3 (`editions.url`, renseignée
+ * par SOGEST à l'upload ou par la migration `crons/editions_vers_s3.php`),
+ * sinon le fichier sur SOGEST. Usage serveur seulement (`relayerPdfEdition`).
+ * @param {{id: number, url?: string|null}} edition
+ * @returns {string}
  */
-export async function urlsPdfEditions(editionIds) {
-  const ids = [...new Set(editionIds.filter(Boolean))];
-  if (!ids.length) return new Map();
-  const rows = await db('editions').select('id', 'url').whereIn('id', ids);
-  return new Map(rows.map((row) => [row.id, row.url]));
+function sourcePdfEdition(edition) {
+  return edition.url || sogestUrl(`uploads/editions/${edition.id}.pdf`);
+}
+
+// En-têtes de la réponse amont recopiés tels quels : de quoi laisser un lecteur
+// PDF (pdf.js) télécharger par plages, et le navigateur mettre en cache.
+const ENTETES_RELAYES = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified'];
+
+/**
+ * Relaie le PDF d'une édition dans `res`, en flux (un magazine pèse des
+ * dizaines de Mo : il n'est jamais chargé en mémoire). Les en-têtes `Range`,
+ * `If-None-Match` et `If-Modified-Since` du client sont transmis, d'où des
+ * réponses 206 / 304 possibles.
+ *
+ * @param {number} id
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {{telecharger?: boolean}} [options] `Content-Disposition: attachment` plutôt qu'`inline`
+ * @throws {Error} 404 édition ou fichier introuvable, 502 stockage injoignable
+ */
+export async function relayerPdfEdition(id, req, res, { telecharger = false } = {}) {
+  if (isNaN(id)) throw httpError(400, 'id_invalide', 'Identifiant d\'édition invalide');
+  const edition = await db('editions').select('id', 'url', 'filename').where('id', id).where('trash', '<>', 1).first();
+  if (!edition) throw httpError(404, 'edition_inconnue', 'Édition introuvable');
+
+  const headers = {};
+  for (const nom of ['range', 'if-none-match', 'if-modified-since', 'if-range']) {
+    if (req.headers[nom]) headers[nom] = req.headers[nom];
+  }
+  // Fichier encore sur SOGEST : il reçoit le JWT de l'appelant, qu'il accepte
+  // (même JWT_SECRET). Jamais transmis au S3, qui n'en a que faire.
+  if (!edition.url && req.isJwt && req.headers.authorization) headers.authorization = req.headers.authorization;
+
+  const source = sourcePdfEdition(edition);
+  const stockage = edition.url ? 'S3' : 'SOGEST';
+  // Délai sur l'arrivée des en-têtes seulement : le corps, lui, peut mettre
+  // plus longtemps à descendre vers un client lent.
+  const delai = new AbortController();
+  const minuteur = setTimeout(() => delai.abort(new Error('délai dépassé')), 30000);
+  let amont;
+  try {
+    amont = await fetch(source, { headers, redirect: 'manual', signal: delai.signal });
+  } catch (e) {
+    throw httpError(502, 'stockage_injoignable', `${stockage} injoignable : ${e.message}`);
+  } finally {
+    clearTimeout(minuteur);
+  }
+
+  if (amont.status === 404 || (amont.status === 403 && edition.url)) {
+    // S3 répond 403 (et non 404) sur une clé absente d'un bucket non listable.
+    throw httpError(404, 'pdf_introuvable', `PDF de l'édition ${id} introuvable sur ${stockage}`);
+  }
+  const ok = amont.ok || amont.status === 304 || amont.status === 416;
+  if (!ok || (amont.headers.get('content-type') || '').includes('text/html')) {
+    // Une redirection ou une page HTML : SOGEST renvoie vers son login.
+    await amont.body?.cancel();
+    throw httpError(502, 'stockage_reponse_inattendue', `${stockage} a répondu ${amont.status}`);
+  }
+
+  res.status(amont.status);
+  for (const nom of ENTETES_RELAYES) {
+    const valeur = amont.headers.get(nom);
+    if (valeur) res.set(nom, valeur);
+  }
+  if (amont.status !== 304 && !amont.headers.get('content-type')?.includes('pdf')) res.set('Content-Type', 'application/pdf');
+  res.set('Content-Disposition', dispositionPdf(edition, telecharger));
+  // Réponse propre à l'appelant authentifié : jamais dans un cache partagé.
+  res.set('Cache-Control', 'private, max-age=3600');
+
+  if (!amont.body || amont.status === 304) return res.end();
+  try {
+    await pipeline(Readable.fromWeb(amont.body), res);
+  } catch (e) {
+    // En-têtes déjà partis : plus rien à répondre. Le cas courant est un client
+    // qui abandonne (pdf.js annule les plages dont il n'a plus besoin).
+    if (e.code !== 'ERR_STREAM_PREMATURE_CLOSE') console.warn(`PDF édition ${id} interrompu : ${e.message}`);
+  }
+}
+
+/**
+ * `Content-Disposition` du PDF, au nom du fichier de l'édition. Un en-tête HTTP
+ * ne porte que du Latin-1 : `filename` en reçoit une version ASCII, `filename*`
+ * le nom exact (RFC 6266).
+ */
+function dispositionPdf(edition, telecharger) {
+  const nom = String(edition.filename || `edition-${edition.id}`).replace(/\.pdf$/i, '') + '.pdf';
+  const ascii = nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]|["\\]/g, '_');
+  return `${telecharger ? 'attachment' : 'inline'}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nom)}`;
 }
 
 // Mois abrégés de `dateFr()` de SOGEST (« Jui. » = juin), dans l'ordre.
@@ -70,7 +158,7 @@ function envoiEdition(edition) {
 /** Ajoute à une édition l'URL complète de son PDF, celle de sa fiche dans SOGEST et son dernier envoi. */
 function avecPdf(edition) {
   if (!edition) return edition;
-  return { ...edition, pdf: pdfEditionUrl(edition.id, edition.url), fiche: ficheEditionUrl(edition.id), envoi: envoiEdition(edition) };
+  return { ...edition, pdf: pdfEditionUrl(edition.id), fiche: ficheEditionUrl(edition.id), envoi: envoiEdition(edition) };
 }
 
 const SORTABLE = new Set(['publication', 'modification', 'numero', 'id']);

@@ -26,7 +26,8 @@ export const routePath = '/activites';
  *
  *       Chaque activité porte ses deux URL de lecture : `liseuse` (la
  *       visionneuse sogest, qui contrôle elle-même l'accès au contenu) et `pdf`
- *       (le PDF de l'édition rattachée, `null` s'il n'y en a pas). Aucune des
+ *       (le PDF de l'édition rattachée, relayé par `GET /editions/{id}/pdf`,
+ *       `null` s'il n'y en a pas). Aucune des
  *       deux n'est vérifiée : ce sont des URL déduites de l'activité.
  *     parameters:
  *       - in: query
@@ -76,7 +77,7 @@ router.get('/', handleResponse(async (req) => {
  *
  *       La réponse porte `liseuse` (URL de la visionneuse sogest, qui contrôle
  *       elle-même l'accès au contenu) et `pdf` (URL du PDF de l'édition
- *       rattachée, `null` s'il n'y en a pas).
+ *       rattachée, relayé par `GET /editions/{id}/pdf`, `null` s'il n'y en a pas).
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:

@@ -1,5 +1,5 @@
 import express from 'express';
-import { listEditions, getEdition, resolveSupportId, diffuserEdition } from '../inc/editorial/editions.js';
+import { listEditions, getEdition, resolveSupportId, diffuserEdition, relayerPdfEdition } from '../inc/editorial/editions.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
 
 const router = express.Router();
@@ -61,7 +61,7 @@ router.get('/', handleResponse(async (req, res) => {
  *     tags: [Editions]
  *     summary: Détails d'une édition
  *     description: |
- *       La réponse porte `pdf`, l'URL complète du fichier (S3, ou SOGEST tant qu'elle n'est pas migrée).
+ *       La réponse porte `pdf`, l'URL du fichier relayé par l'API (`/editions/{id}/pdf`).
  *     parameters:
  *       - { in: path, name: id, required: true, schema: { type: integer } }
  *     responses:
@@ -76,6 +76,44 @@ router.get('/:id', handleResponse(async (req, res) => {
     throw new Error('Edition not found');
   }
   return edition;
+}));
+
+/**
+ * @openapi
+ * /editions/{id}/pdf:
+ *   get:
+ *     tags: [Editions]
+ *     summary: PDF d'une édition
+ *     description: |
+ *       Relaie le PDF de l'édition depuis son stockage (le S3 de SOGEST, ou
+ *       `uploads/editions/{id}.pdf` sur SOGEST tant qu'elle n'est pas migrée).
+ *       C'est l'URL du champ `pdf` des éditions et des activités : le bucket
+ *       n'envoyant aucun en-tête CORS, un front ne peut pas lire le fichier
+ *       directement, alors qu'il lit l'API avec son jeton.
+ *
+ *       Le fichier est servi en flux, `inline` (`?telecharger=1` pour
+ *       `attachment`). Les requêtes par plages (`Range`, réponse 206) et
+ *       conditionnelles (`If-None-Match`, réponse 304) sont relayées : pdf.js
+ *       peut afficher les premières pages sans tout télécharger.
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *       - { in: query, name: telecharger, schema: { type: boolean }, description: 'Content-Disposition: attachment' }
+ *       - { in: header, name: Range, schema: { type: string, example: 'bytes=0-65535' } }
+ *     responses:
+ *       200:
+ *         description: Le PDF
+ *         content:
+ *           application/pdf:
+ *             schema: { type: string, format: binary }
+ *       206: { description: Plage demandée du PDF }
+ *       304: { description: Inchangé depuis la version en cache }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { description: 'Édition inconnue (`edition_inconnue`) ou fichier absent du stockage (`pdf_introuvable`)' }
+ *       502: { description: 'Stockage injoignable (`stockage_injoignable`) ou réponse inattendue (`stockage_reponse_inattendue`)' }
+ */
+router.get('/:id/pdf', handleResponse(async (req, res) => {
+  const telecharger = ['1', 'true'].includes(String(req.query.telecharger));
+  await relayerPdfEdition(parseInt(req.params.id, 10), req, res, { telecharger });
 }));
 
 /**

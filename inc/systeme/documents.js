@@ -2,7 +2,7 @@ import { db } from '../../db.js';
 import { getContrats } from '../rh/contrats.js';
 import { getPiges } from '../editorial/piges.js';
 import { sogestUrl } from '../core/sogest.js';
-import { getRequest } from '../core/request.js';
+import { apiBaseUrl } from '../core/request.js';
 import { kebabToCamel, choseDate } from '../core/utils.js';
 
 /**
@@ -16,24 +16,6 @@ const DOCUMENT_SOURCES = {
     contrat: (id) => sogestUrl('contrat.php', { contrat_id: id }),
     pige: (id) => sogestUrl('action.php', { w: 'telecharger_da', pige_id: id }),
 };
-
-/**
- * Base publique de l'API : `BASE_URL` si défini, sinon déduite de la requête en
- * cours (en honorant `X-Forwarded-Proto` derrière un reverse proxy). Chaîne vide
- * en dernier recours : les URLs produites sont alors relatives, ce qui reste
- * exploitable par un client qui a déjà l'API pour base.
- * @returns {string}
- */
-function apiBaseUrl() {
-    const configured = (process.env.BASE_URL || '').trim();
-    if (configured) return configured.replace(/\/+$/, '');
-
-    const req = getRequest();
-    if (!req) return '';
-
-    const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
-    return `${forwarded || req.protocol}://${req.get('host')}`;
-}
 
 /**
  * URL de téléchargement d'un document, proxifiée par l'API.

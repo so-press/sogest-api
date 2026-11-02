@@ -125,9 +125,10 @@ app.use(cors({
 
     callback(httpError(403, 'origine_non_autorisee', `Origine non autorisée par ALLOWED_DOMAINS : ${origin}`));
   },
-  // Sans ça le navigateur masque l'en-tête au JS : le front ne pourrait pas
-  // récupérer le nom de fichier renvoyé par /documents/:origin/:id/fichier.
-  exposedHeaders: ['Content-Disposition'],
+  // Sans ça le navigateur masque ces en-têtes au JS : le front ne pourrait pas
+  // récupérer le nom de fichier renvoyé par /documents/:origin/:id/fichier, ni
+  // pdf.js lire par plages le PDF relayé par /editions/:id/pdf.
+  exposedHeaders: ['Content-Disposition', 'Content-Length', 'Content-Range', 'Accept-Ranges'],
 }));
 
 // Origine refusée : un 403 explicite plutôt que la page 500 par défaut d'Express.

@@ -176,6 +176,15 @@ envoie sur les FTP. Sans aiguillage, l'édition reste `waiting` (rien envoyé).
 
 Colonnes ajoutées par `sql/editions_diffusion.sql`.
 
+### PDF des éditions
+
+Le champ `pdf` des éditions et des activités pointe sur `GET /editions/{id}/pdf`,
+**jamais sur le stockage** : le bucket S3 de sogest n'envoie aucun en-tête CORS,
+un front ne peut donc pas lire `editions.url` directement. La route relaie le
+fichier en flux (S3, ou `uploads/editions/{id}.pdf` sur SOGEST tant que
+l'édition n'est pas migrée) et transmet `Range` / `If-None-Match`, pour que
+pdf.js lise par plages. Elle exige le jeton comme le reste de l'API.
+
 ### Réservation des endroits
 
 Un « endroit » n'est pas forcément un lieu : salle de réunion, salle de montage,

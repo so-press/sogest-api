@@ -2,7 +2,7 @@ import { db } from '../../db.js';
 import { sogestUrl } from '../core/sogest.js';
 import { urlExists } from '../core/utils.js';
 import { saveToHistorique } from '../systeme/historique.js';
-import { pdfEditionUrl, urlsPdfEditions } from './editions.js';
+import { pdfEditionUrl } from './editions.js';
 
 const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
 
@@ -12,32 +12,30 @@ const SORTABLE = new Set(['libelle', 'id', 'periode', 'numero']);
  * - `liseuse` — la visionneuse sogest (`visionneuse.php?id_activite=`), qui
  *   feuillette le PDF de l'édition rattachée. Elle contrôle elle-même l'accès
  *   (`User::hasAccessToPdf`) : l'URL est toujours servie, pas le contenu.
- * - `pdf` — le PDF de l'édition rattachée (URL S3, ou `uploads/editions/{id}.pdf`
- *   sur SOGEST tant qu'elle n'est pas migrée, cf. `pdfEditionUrl`). `null` sans
- *   édition rattachée.
+ * - `pdf` — le PDF de l'édition rattachée, relayé par l'API
+ *   (`/editions/{edition_id}/pdf`, cf. `pdfEditionUrl`). `null` sans édition
+ *   rattachée.
  *
  * Les deux se déduisent de l'activité, aucun aller-retour HTTP : l'existence
  * du fichier PDF n'est pas vérifiée (ce serait une requête par activité sur
  * une liste), contrairement à `couverture`.
  *
  * @param {Object|null} activite
- * @param {Map<number, string>} urls `editions.url` par id (`urlsPdfEditions`)
  * @returns {Object|null}
  */
-function avecLiensLecture(activite, urls) {
+function avecLiensLecture(activite) {
   if (!activite) return activite;
 
   return {
     ...activite,
     liseuse: sogestUrl('visionneuse.php', { id_activite: activite.id }),
-    pdf: pdfEditionUrl(activite.edition_id, urls.get(activite.edition_id)),
+    pdf: pdfEditionUrl(activite.edition_id),
   };
 }
 
-/** avecLiensLecture() sur une liste, en une seule requête sur les éditions. */
+/** avecLiensLecture() sur une liste. */
 async function avecLiensLectureListe(activites) {
-  const urls = await urlsPdfEditions(activites.map((activite) => activite.edition_id));
-  return activites.map((activite) => avecLiensLecture(activite, urls));
+  return activites.map(avecLiensLecture);
 }
 
 /** avecLiensLecture() sur une activité (ou `null`). */
