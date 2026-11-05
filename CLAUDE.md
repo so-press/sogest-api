@@ -30,6 +30,7 @@ Copy `.env` from a template (not committed). Required variables:
   `BREVO_SMS_API_KEY`), `MAILJET_KEY`, `MAILJET_SECRET`, `MAIL_FROM`,
   `MAIL_FROM_NAME`, `MAIL_BCC`, `MAIL_FALLBACK`, `MAIL_REDIRECT_TO`, `MAIL_ENV`,
   `MAIL_MAX_ATTACHMENT_MB` — envoi d'e-mails, voir plus bas
+- `GLITCHTIP_DSN`, `GLITCHTIP_ENV` (défaut `prod`) — remontée des erreurs vers GlitchTip (`errors.sopress.dev`, projet 4), voir plus bas
 - `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
@@ -364,6 +365,17 @@ possible, donc aucun ultra admin ne peut se connecter (le SSO refuse plutôt que
 de laisser passer). Elle doit être posée AVANT tout déploiement, être différente
 par environnement, et ne jamais changer une fois des comptes enrôlés — les
 secrets deviendraient illisibles.
+
+### Remontée des erreurs (GlitchTip)
+
+`instrument.js` initialise le SDK Sentry (GlitchTip en parle le protocole) et
+doit rester **le premier import de `server.js`**. Sans `GLITCHTIP_DSN`, rien
+n'est initialisé. Ne remontent que les anomalies : les 5xx attrapées par
+`handleResponse()` (via `signalerErreur()`), celles qui lui échappent
+(`Sentry.setupExpressErrorHandler`) et les exceptions/rejets non attrapés. Les
+4xx sont des réponses normales de l'API et ne sont jamais signalées. Pas de
+traces de performance, pas de PII (corps, cookies, `Authorization`) ; seul
+l'id de l'utilisateur JWT est joint.
 
 ### File upload
 

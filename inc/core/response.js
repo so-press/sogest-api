@@ -1,3 +1,5 @@
+import { signalerErreur } from '../../instrument.js';
+
 /**
  * Construit une erreur HTTP « métier » : statut, code d'erreur stable
  * (renvoyé tel quel dans le champ `error`) et message lisible.
@@ -100,6 +102,9 @@ export function handleResponse(handler) {
         err.status ||
         err.statusCode ||
         (res.statusCode >= 400 ? res.statusCode : 500);
+      // Seules les erreurs serveur sont des anomalies : un 4xx est une réponse
+      // normale de l'API (droit refusé, ressource absente, saisie invalide…).
+      if (status >= 500) signalerErreur(err, req);
       // Erreur métier (httpError) : `error` porte le code stable, `message` le
       // texte lisible. Sinon, comportement historique.
       res.status(status).json({

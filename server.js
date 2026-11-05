@@ -1,3 +1,6 @@
+// GlitchTip : doit être chargé avant tout le reste
+import { glitchtipActif, Sentry } from './instrument.js';
+
 // dependencies
 import express from 'express';
 import mysql from 'mysql2/promise';
@@ -198,6 +201,10 @@ for (const file in routes) {
     throw err;
   }
 };
+
+// Erreurs qui échappent à handleResponse (routes en flux, middlewares…) :
+// signalées à GlitchTip quand elles sont en 5xx, puis rendues par Express.
+if (glitchtipActif) Sentry.setupExpressErrorHandler(app);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
