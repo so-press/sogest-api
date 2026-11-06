@@ -24,6 +24,34 @@ if (glitchtipActif) {
 }
 
 /**
+ * L'utilisateur JWT de la requête, tel que GlitchTip l'affiche : id, email,
+ * nom et niveau. `null` sous jeton applicatif statique.
+ * @param {import('express').Request} [req]
+ */
+function utilisateur(req) {
+  const u = req?.user;
+  if (!u?.id) return null;
+  return {
+    id: String(u.id),
+    email: u.email || undefined,
+    username: u.nomComplet || [u.prenom, u.nom].filter(Boolean).join(' ') || undefined,
+    level: u.level || undefined,
+  };
+}
+
+/**
+ * Middleware, monté après l'authentification : rattache l'utilisateur à toutes
+ * les erreurs de la requête, y compris celles qui échappent à handleResponse.
+ */
+export function glitchtipUtilisateur(req, res, next) {
+  if (glitchtipActif) {
+    const u = utilisateur(req);
+    if (u) Sentry.setUser(u);
+  }
+  next();
+}
+
+/**
  * Signale une erreur attrapée par l'application (et donc invisible du
  * gestionnaire d'erreurs d'Express). Sans effet si GlitchTip n'est pas
  * configuré.
@@ -33,7 +61,8 @@ if (glitchtipActif) {
 export function signalerErreur(err, req) {
   if (!glitchtipActif) return;
   Sentry.withScope((scope) => {
-    if (req?.user?.id) scope.setUser({ id: String(req.user.id) });
+    const u = utilisateur(req);
+    if (u) scope.setUser(u);
     if (req) scope.setTag('jeton', req.isJwt ? 'jwt' : 'statique');
     Sentry.captureException(err);
   });

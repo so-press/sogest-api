@@ -374,8 +374,9 @@ n'est initialisé. Ne remontent que les anomalies : les 5xx attrapées par
 `handleResponse()` (via `signalerErreur()`), celles qui lui échappent
 (`Sentry.setupExpressErrorHandler`) et les exceptions/rejets non attrapés. Les
 4xx sont des réponses normales de l'API et ne sont jamais signalées. Pas de
-traces de performance, pas de PII (corps, cookies, `Authorization`) ; seul
-l'id de l'utilisateur JWT est joint.
+traces de performance, ni corps, ni cookies, ni `Authorization` ; l'utilisateur JWT
+est joint (id, email, nom, niveau) par le middleware `glitchtipUtilisateur`,
+monté juste après `authMiddleware`.
 
 ### File upload
 

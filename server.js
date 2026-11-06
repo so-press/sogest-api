@@ -1,5 +1,5 @@
 // GlitchTip : doit être chargé avant tout le reste
-import { glitchtipActif, Sentry } from './instrument.js';
+import { glitchtipActif, glitchtipUtilisateur, Sentry } from './instrument.js';
 
 // dependencies
 import express from 'express';
@@ -170,6 +170,7 @@ for (const file in routes) {
 
 // Apply auth middleware globally
 app.use(authMiddleware);
+app.use(glitchtipUtilisateur);
 
 for (const file in routes) {
   if (!Object.hasOwn(routes, file)) continue;
