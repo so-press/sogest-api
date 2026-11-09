@@ -31,9 +31,10 @@ Copy `.env` from a template (not committed). Required variables:
   `MAIL_FROM_NAME`, `MAIL_BCC`, `MAIL_FALLBACK`, `MAIL_REDIRECT_TO`, `MAIL_ENV`,
   `MAIL_MAX_ATTACHMENT_MB` — envoi d'e-mails, voir plus bas
 - `GLITCHTIP_DSN`, `GLITCHTIP_ENV` (défaut `prod`) — remontée des erreurs vers GlitchTip (`errors.sopress.dev`, projet 4), voir plus bas
-- `ADMIN_SSO_CLIENT_ID` (obligatoire pour `/admin/`), `ADMIN_SSO_ISSUER`, `ADMIN_SSO_JWKS_URI`
-  (défauts : `SSO_ISSUER`, `SSO_JWKS_URI`) — client OIDC public (PKCE) de la page
-  `/admin/`, **indépendant de `SSO_AUDIENCE`**, voir « Clients de l'API »
+- `ADMIN_SSO_ISSUER`, `ADMIN_SSO_CLIENT_ID` (obligatoires pour `/admin/`),
+  `ADMIN_SSO_JWKS_URI` (facultative, sinon découverte via
+  `.well-known/openid-configuration` de l'issuer) — SSO et client OIDC public
+  (PKCE) de la page `/admin/`, **sans aucun repli sur `SSO_*`**, voir « Clients de l'API »
 - `SSO_AUDIENCE` — comma-separated allowlist of `client_id`s accepted when exchanging an id_token (= expected `aud`). The first entry is the default audience when the front sends no `client_id`. Any `client_id` matching `sogest-<slug>` is also accepted, regardless of this list.
 
 `config/config.json` (not committed, use `config.json.modele` as template) holds:
@@ -404,7 +405,7 @@ tokens`/`tokenScopes`, `ALLOWED_DOMAINS`). Tables `api_clients`,
 - Routes `requireAuth` + **ultra admin**.
 
 `admin/` est servi statiquement sur `/admin` (Bulma) : connexion OIDC code +
-PKCE au SSO avec le client public `ADMIN_SSO_CLIENT_ID` (sans secret), puis
+PKCE au SSO `ADMIN_SSO_ISSUER` avec le client public `ADMIN_SSO_CLIENT_ID` (sans secret), puis
 `POST /api-clients/auth/sso` (public, `publicRouter`) qui vérifie l'id_token
 contre ce client — et non contre `SSO_AUDIENCE`, réservée aux fronts de
 `/login/sso` — et ne délivre le JWT qu'aux ultra admins. La page lit sa config

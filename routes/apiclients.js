@@ -17,20 +17,40 @@ export const routePath = '/api-clients';
 export const requireAuth = true;
 
 /**
- * Client OIDC de la page /admin/, **distinct** de celui des fronts
- * (`SSO_AUDIENCE` n'est pas concerné) :
- * - `ADMIN_SSO_CLIENT_ID` — client public (PKCE, sans secret) ; obligatoire,
- *   sans lui la connexion admin est désactivée ;
- * - `ADMIN_SSO_ISSUER`, `ADMIN_SSO_JWKS_URI` — par défaut `SSO_ISSUER` et
- *   `SSO_JWKS_URI`.
+ * Client OIDC de la page /admin/, **entièrement distinct** de celui des fronts
+ * (ni `SSO_AUDIENCE`, ni `SSO_ISSUER`, ni `SSO_JWKS_URI` ne sont lus ici) :
+ * - `ADMIN_SSO_ISSUER` — URL du SSO (issuer OIDC) ; obligatoire ;
+ * - `ADMIN_SSO_CLIENT_ID` — client public (PKCE, sans secret) ; obligatoire ;
+ * - `ADMIN_SSO_JWKS_URI` — facultative : par défaut, le `jwks_uri` publié par
+ *   `<ADMIN_SSO_ISSUER>/.well-known/openid-configuration`.
+ * Sans les deux obligatoires, la connexion admin est désactivée (503).
  */
-function adminSsoConfig() {
+let jwksDecouvert = null; // { issuer, uri }
+
+async function adminSsoConfig({ avecJwks = false } = {}) {
   const clientId = (process.env.ADMIN_SSO_CLIENT_ID || '').trim();
-  const issuer = process.env.ADMIN_SSO_ISSUER || process.env.SSO_ISSUER;
-  const jwksUri = process.env.ADMIN_SSO_JWKS_URI || process.env.SSO_JWKS_URI;
-  if (!clientId || !issuer || !jwksUri) {
+  const issuer = (process.env.ADMIN_SSO_ISSUER || '').trim();
+  if (!clientId || !issuer) {
     throw httpError(503, 'admin_sso_non_configure',
-      'Connexion admin non configurée (ADMIN_SSO_CLIENT_ID, et ADMIN_SSO_ISSUER / ADMIN_SSO_JWKS_URI ou SSO_ISSUER / SSO_JWKS_URI)');
+      'Connexion admin non configurée : ADMIN_SSO_ISSUER et ADMIN_SSO_CLIENT_ID sont requis');
+  }
+  // L'issuer est comparé tel quel au claim `iss` : on ne le normalise pas.
+  if (!avecJwks) return { clientId, issuer };
+
+  let jwksUri = (process.env.ADMIN_SSO_JWKS_URI || '').trim();
+  if (!jwksUri) {
+    if (jwksDecouvert?.issuer !== issuer) {
+      try {
+        const res = await fetch(`${issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { jwks_uri } = await res.json();
+        if (!jwks_uri) throw new Error('jwks_uri absent');
+        jwksDecouvert = { issuer, uri: jwks_uri };
+      } catch (e) {
+        throw httpError(502, 'admin_sso_injoignable', `Découverte OIDC impossible sur ${issuer} : ${e.message}`);
+      }
+    }
+    jwksUri = jwksDecouvert.uri;
   }
   return { clientId, issuer, jwksUri };
 }
@@ -59,7 +79,7 @@ function adminSsoConfig() {
  *       503: { description: "`admin_sso_non_configure`" }
  */
 publicRouter.get('/auth/config', handleResponse(async () => {
-  const { clientId, issuer } = adminSsoConfig();
+  const { clientId, issuer } = await adminSsoConfig();
   return { authority: issuer, client_id: clientId, scope: 'openid profile email' };
 }));
 
@@ -87,10 +107,11 @@ publicRouter.get('/auth/config', handleResponse(async () => {
  *       400: { description: "`id_token_manquant`" }
  *       401: { description: "`id_token_invalide`" }
  *       403: { description: "`utilisateur_inconnu`, `non_habilite`" }
+ *       502: { description: "`admin_sso_injoignable` (découverte OIDC)" }
  *       503: { description: "`admin_sso_non_configure`" }
  */
 publicRouter.post('/auth/sso', handleResponse(async (req) => {
-  const { clientId, issuer, jwksUri } = adminSsoConfig();
+  const { clientId, issuer, jwksUri } = await adminSsoConfig({ avecJwks: true });
   const idToken = req.body?.id_token;
   if (!idToken) throw httpError(400, 'id_token_manquant', 'id_token requis');
 
