@@ -1,0 +1,20 @@
+meta {
+  name: API Clients (Historique)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base}}/api-clients/historique
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+docs {
+  Noms des jetons de config.json (jamais leur valeur) et entrées de
+  ALLOWED_DOMAINS : toujours acceptés, en lecture seule ici.
+}

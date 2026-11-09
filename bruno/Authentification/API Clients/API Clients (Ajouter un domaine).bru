@@ -1,0 +1,21 @@
+meta {
+  name: API Clients (Ajouter un domaine)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base}}/api-clients/1/domaines
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "domaine": "app.example.com"
+  }
+}

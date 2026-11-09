@@ -1,0 +1,26 @@
+meta {
+  name: API Clients (Générer un jeton)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base}}/api-clients/1/tokens
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "libelle": "prod",
+    "expire_le": null
+  }
+}
+
+docs {
+  Le jeton en clair n'est renvoyé qu'ici, une seule fois.
+}

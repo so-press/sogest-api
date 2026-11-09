@@ -1,0 +1,23 @@
+meta {
+  name: API Clients (Créer)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base}}/api-clients
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}
+
+body:json {
+  {
+    "nom": "mon-outil",
+    "description": "Outil interne",
+    "scopes": { "routes": ["/equipes"] }
+  }
+}

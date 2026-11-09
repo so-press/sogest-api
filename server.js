@@ -11,6 +11,8 @@ import { createRequire } from 'module';
 import cors from 'cors';
 import { setRequestContext } from './inc/core/request.js';
 import { httpError } from './inc/core/response.js';
+import { compilerDomaines, domainesEnv } from './inc/core/cors.js';
+import { origineAutoriseeEnBase } from './inc/auth/apiclients.js';
 
 // routes
 import * as absences from './routes/absences.js';
@@ -36,6 +38,7 @@ import * as reservations from './routes/reservations.js';
 import * as mails from './routes/mails.js';
 import * as applications from './routes/applications.js';
 import * as groupesApplications from './routes/groupes_applications.js';
+import * as apiclients from './routes/apiclients.js';
 
 // middleware
 import { jwtOnlyMiddleware } from './inc/middleware/jwt.js';
@@ -64,7 +67,8 @@ const routes = {
   reservations,
   mails,
   applications,
-  groupesApplications
+  groupesApplications,
+  apiclients
 };
 
 // Load environment variables
@@ -87,51 +91,38 @@ const port = process.env.PORT || 3000;
 const baseURL = process.env.BASE_URL || `http://localhost:${port}`;
 
 
-const allowedRaw = (process.env.ALLOWED_DOMAINS || '')
-  .split(',')
-  .map(d => d.trim().toLowerCase())
-  .filter(Boolean);
+// Origines autorisées : ALLOWED_DOMAINS (historique, lu au démarrage) puis les
+// domaines des clients de l'API gérés en base (cf. inc/auth/apiclients.js).
+const origineAutoriseeEnv = compilerDomaines(domainesEnv());
 
-// Build three sets : exact host:port, host-only (n'importe quel port),
-// et wildcards de sous-domaine `*.domaine` (n'importe quel sous-domaine + apex)
-const allowedExact = new Set();
-const allowedHostOnly = new Set();
-const allowedWildcard = []; // domaines de base, ex. 'sopress.com' pour '*.sopress.com'
-
-for (const entry of allowedRaw) {
-  if (entry.startsWith('*.')) {
-    allowedWildcard.push(entry.slice(2));
-  } else if (entry.includes(':')) {
-    allowedExact.add(entry);
-  } else {
-    allowedHostOnly.add(entry);
+// Même origine que l'API (la page /admin/ en POST/PUT/DELETE envoie un en-tête
+// Origin) : toujours acceptée, quels que soient ALLOWED_DOMAINS.
+const memeOrigine = (req, origin) => {
+  try {
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    return !!host && new URL(origin).host === host;
+  } catch {
+    return false;
   }
-}
+};
 
-const matchesWildcard = (hostname) =>
-  allowedWildcard.some((base) => hostname === base || hostname.endsWith(`.${base}`));
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // Allow non-browser requests
-
-    try {
-      const { hostname, port } = new URL(origin);
-      const key = port ? `${hostname}:${port}` : `${hostname}:443`;
-
-      if (allowedExact.has(key) || allowedHostOnly.has(hostname) || matchesWildcard(hostname)) {
-        return callback(null, true);
-      }
-    } catch (e) {
-      // Invalid origin format
-    }
-
-    callback(httpError(403, 'origine_non_autorisee', `Origine non autorisée par ALLOWED_DOMAINS : ${origin}`));
-  },
+const corsOptions = {
   // Sans ça le navigateur masque ces en-têtes au JS : le front ne pourrait pas
   // récupérer le nom de fichier renvoyé par /documents/:origin/:id/fichier, ni
   // pdf.js lire par plages le PDF relayé par /editions/:id/pdf.
   exposedHeaders: ['Content-Disposition', 'Content-Length', 'Content-Range', 'Accept-Ranges'],
+};
+
+app.use(cors(async (req, callback) => {
+  const origin = req.headers.origin;
+  // Requêtes hors navigateur, ou depuis l'API elle-même
+  if (!origin || memeOrigine(req, origin)) return callback(null, { ...corsOptions, origin: true });
+
+  if (origineAutoriseeEnv(origin) || await origineAutoriseeEnBase(origin)) {
+    return callback(null, { ...corsOptions, origin: true });
+  }
+
+  callback(httpError(403, 'origine_non_autorisee', `Origine non autorisée (ALLOWED_DOMAINS ni clients de l'API) : ${origin}`));
 }));
 
 // Origine refusée : un 403 explicite plutôt que la page 500 par défaut d'Express.
@@ -157,6 +148,9 @@ const pool = mysql.createPool({
 });
 
 app.use('/doc', express.static(path.join(__dirname, 'doc')));
+// Page d'administration des clients de l'API (connexion SSO en PKCE, puis
+// appels à /api-clients avec le JWT obtenu) : statique, publique.
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
 // Routes publiques (sans authentification) : un module de route peut exporter
 // un `publicRouter` qui est monté avant `authMiddleware` sur son `routePath`.

@@ -57,7 +57,8 @@ export function isUltraAdminRequest(req) {
  * ```
  *
  * La clé est le **nom** du jeton dans `tokens`. Un jeton absent de
- * `tokenScopes` reste non restreint.
+ * `tokenScopes` reste non restreint. Pour un client de l'API géré en base,
+ * c'est la colonne `api_clients.scopes` qui fait foi.
  *
  * @param {import('express').Request} req
  * @param {number} equipeId
@@ -65,7 +66,8 @@ export function isUltraAdminRequest(req) {
  */
 export function isEquipeInTokenScope(req, equipeId) {
   if (req.isJwt !== false) return true; // pas un jeton statique : hors sujet
-  const scope = tokenScopes[req.tokenName];
+  // `req.tokenScope` est posé par authMiddleware (config.json ou client en base).
+  const scope = req.tokenScope !== undefined ? req.tokenScope : tokenScopes[req.tokenName];
   if (!scope || !Array.isArray(scope.equipes)) return true;
   return scope.equipes.map(Number).includes(Number(equipeId));
 }

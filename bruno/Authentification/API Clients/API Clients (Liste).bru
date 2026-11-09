@@ -1,0 +1,15 @@
+meta {
+  name: API Clients (Liste)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base}}/api-clients
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwtToken}}
+}

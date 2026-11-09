@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clients de l'API — sogest</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+  <style>
+    .is-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .client-item.is-active { background: var(--bulma-primary-light, #ebfffc); }
+    .client-item { cursor: pointer; }
+    .token-clair { word-break: break-all; user-select: all; }
+    #app[hidden], [hidden] { display: none !important; }
+    .table td { vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <nav class="navbar is-dark" aria-label="navigation principale">
+    <div class="navbar-brand">
+      <span class="navbar-item has-text-weight-bold">sogest-api · Clients de l'API</span>
+    </div>
+    <div class="navbar-end">
+      <div class="navbar-item" id="nav-user" hidden>
+        <span class="mr-3" id="nav-user-name"></span>
+        <button class="button is-small is-light" id="btn-logout">Déconnexion</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Connexion -->
+  <section class="section" id="login" hidden>
+    <div class="container" style="max-width: 480px">
+      <div class="box has-text-centered">
+        <h1 class="title is-4">Administration des clients de l'API</h1>
+        <p class="mb-5">Réservée aux ultra admins sogest.</p>
+        <div class="notification is-danger is-light" id="login-error" hidden></div>
+        <button class="button is-primary is-medium" id="btn-login">Se connecter avec le SSO</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Application -->
+  <section class="section" id="app" hidden>
+    <div class="container is-fluid">
+      <div class="notification is-danger is-light" id="app-error" hidden>
+        <button class="delete" data-close="app-error"></button>
+        <span></span>
+      </div>
+
+      <div class="columns">
+        <!-- Liste -->
+        <div class="column is-4">
+          <nav class="panel">
+            <p class="panel-heading is-flex is-justify-content-space-between is-align-items-center">
+              <span>Clients</span>
+              <button class="button is-small is-primary" id="btn-new">+ Nouveau</button>
+            </p>
+            <div class="panel-block">
+              <p class="control">
+                <input class="input is-small" type="search" placeholder="Filtrer" id="filtre">
+              </p>
+            </div>
+            <div id="liste"></div>
+          </nav>
+
+          <div class="box">
+            <h2 class="title is-6 mb-2">Configuration historique <span class="tag is-light">lecture seule</span></h2>
+            <p class="help mb-3">Toujours acceptée en plus des clients ci-dessus. Se modifie sur le serveur
+              (<code>config/config.json</code>, <code>ALLOWED_DOMAINS</code>).</p>
+            <div id="historique" class="content is-small"></div>
+          </div>
+        </div>
+
+        <!-- Détail -->
+        <div class="column">
+          <div id="vide" class="box has-text-grey has-text-centered py-6">
+            Sélectionnez un client, ou créez-en un.
+          </div>
+
+          <div id="detail" hidden>
+            <!-- Fiche -->
+            <form class="box" id="form-client">
+              <h2 class="title is-5" id="detail-titre"></h2>
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">Nom</label>
+                    <div class="control"><input class="input is-mono" name="nom" required pattern="[A-Za-z0-9][A-Za-z0-9._\-]{1,99}" placeholder="ex. mattermost-plugin"></div>
+                    <p class="help">Identifiant du client (lettres, chiffres, <code>. _ -</code>), équivalent d'un nom de jeton de config.json.</p>
+                  </div>
+                </div>
+                <div class="column is-narrow">
+                  <div class="field">
+                    <label class="label">État</label>
+                    <label class="checkbox mt-2"><input type="checkbox" name="actif"> Actif</label>
+                    <p class="help">Inactif : jetons et domaines ignorés.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label">Description</label>
+                <div class="control"><textarea class="textarea" name="description" rows="2"></textarea></div>
+              </div>
+              <div class="columns">
+                <div class="column">
+                  <div class="field">
+                    <label class="label">Routes autorisées</label>
+                    <div class="control"><textarea class="textarea is-mono" name="routes" rows="3" placeholder="/equipes&#10;/reservations"></textarea></div>
+                    <p class="help">Une par ligne. Vide = toute l'API.</p>
+                  </div>
+                </div>
+                <div class="column">
+                  <div class="field">
+                    <label class="label">Équipes modifiables</label>
+                    <div class="control"><input class="input is-mono" name="equipes" placeholder="4019, 4172"></div>
+                    <p class="help">Ids séparés par des virgules (écritures sur <code>/equipes/:id/membres</code>). Vide = toutes.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="field is-grouped">
+                <div class="control"><button class="button is-primary" type="submit" id="btn-save">Enregistrer</button></div>
+                <div class="control"><button class="button is-light" type="button" id="btn-cancel">Annuler</button></div>
+                <div class="control is-expanded"></div>
+                <div class="control"><button class="button is-danger is-outlined" type="button" id="btn-delete">Supprimer</button></div>
+              </div>
+            </form>
+
+            <div id="sous-ressources">
+              <!-- Jetons -->
+              <div class="box">
+                <h3 class="title is-6">Jetons</h3>
+                <div class="table-container">
+                  <table class="table is-fullwidth is-narrow is-hoverable">
+                    <thead><tr><th>Libellé</th><th>Préfixe</th><th>Créé le</th><th>Expire le</th><th>Dernier usage</th><th>État</th><th></th></tr></thead>
+                    <tbody id="tokens"></tbody>
+                  </table>
+                </div>
+                <form class="field is-grouped is-grouped-multiline" id="form-token">
+                  <div class="control is-expanded"><input class="input is-small" name="libelle" placeholder="Libellé (ex. prod, recette…)"></div>
+                  <div class="control"><input class="input is-small" type="date" name="expire_le" title="Expiration (facultative)"></div>
+                  <div class="control"><button class="button is-small is-primary" type="submit">Générer un jeton</button></div>
+                </form>
+              </div>
+
+              <!-- Domaines -->
+              <div class="box">
+                <h3 class="title is-6">Domaines autorisés (CORS)</h3>
+                <div class="tags" id="domaines"></div>
+                <form class="field has-addons" id="form-domaine">
+                  <div class="control is-expanded"><input class="input is-small is-mono" name="domaine" placeholder="app.example.com, localhost:5173, *.sopress.com" required></div>
+                  <div class="control"><button class="button is-small is-primary" type="submit">Ajouter</button></div>
+                </form>
+                <p class="help"><code>host</code> = tout port, <code>host:port</code> = ce port, <code>*.domaine</code> = sous-domaines et apex.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Jeton généré -->
+  <div class="modal" id="modal-token">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+      <header class="modal-card-head"><p class="modal-card-title">Nouveau jeton</p></header>
+      <section class="modal-card-body">
+        <div class="notification is-warning is-light">
+          Copiez-le maintenant : il <strong>ne sera plus jamais affiché</strong> (seul son haché est conservé).
+        </div>
+        <pre class="token-clair is-mono" id="token-clair"></pre>
+        <p class="help mt-2">S'utilise comme un jeton de config.json : <code>Authorization: Bearer &lt;jeton&gt;</code></p>
+      </section>
+      <footer class="modal-card-foot">
+        <div class="buttons">
+          <button class="button is-primary" id="btn-copy">Copier</button>
+          <button class="button" id="btn-close-token">J'ai copié le jeton</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

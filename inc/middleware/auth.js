@@ -1,6 +1,7 @@
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import { getUser } from '../rh/users.js';
+import { resoudreToken } from '../auth/apiclients.js';
 
 // Load config file
 const config = JSON.parse(fs.readFileSync('./config/config.json'));
@@ -9,18 +10,14 @@ const tokens = Object.values(config.tokens);
 // le périmètre d'un jeton applicatif (cf. `tokenScopes` dans config.json et
 // `isEquipeWritableByRequest()` dans inc/core/access.js).
 const tokenNames = new Map(Object.entries(config.tokens).map(([name, value]) => [value, name]));
+const tokenScopes = config.tokenScopes || {};
+
 // Routes auxquelles un jeton applicatif est cantonné, s'il y en a :
 //   "tokenScopes": { "mattermost-plugin": { "routes": ["/mattermost"] } }
 // Sans `routes`, le jeton garde l'accès à toute l'API (comportement historique).
-const tokenRoutes = Object.fromEntries(
-  Object.entries(config.tokenScopes || {})
-    .filter(([, scope]) => Array.isArray(scope.routes))
-    .map(([name, scope]) => [name, scope.routes])
-);
-
-function routeAutorisee(name, path) {
-  const routes = tokenRoutes[name];
-  if (!routes) return true;
+function routeAutorisee(scope, path) {
+  const routes = scope?.routes;
+  if (!Array.isArray(routes)) return true;
   return routes.some((r) => path === r || path.startsWith(r + '/'));
 }
 
@@ -36,10 +33,30 @@ export async function authMiddleware(req, res, next) {
   if (tokens.includes(token)) {
     req.isJwt = false;
     req.tokenName = tokenNames.get(token) || null;
-    if (!routeAutorisee(req.tokenName, req.path)) {
+    req.tokenScope = tokenScopes[req.tokenName] ?? null;
+    if (!routeAutorisee(req.tokenScope, req.path)) {
       return res.status(403).json({ error: 'Unauthorized: route hors du périmètre de ce jeton' });
     }
     return next();
+  }
+
+  // Jeton d'un client de l'API géré en base (`sgk_…`, cf. inc/auth/apiclients.js) :
+  // même statut qu'un jeton de config.json, le nom du client tenant lieu de nom.
+  try {
+    const client = await resoudreToken(token);
+    if (client) {
+      req.isJwt = false;
+      req.tokenName = client.nom;
+      req.tokenScope = client.scopes;
+      req.apiClientId = client.clientId;
+      if (!routeAutorisee(req.tokenScope, req.path)) {
+        return res.status(403).json({ error: 'Unauthorized: route hors du périmètre de ce jeton' });
+      }
+      return next();
+    }
+  } catch (err) {
+    console.error('Résolution du jeton client :', err.message);
+    return res.status(503).json({ error: 'Unauthorized: jeton client non vérifiable' });
   }
 
   try {

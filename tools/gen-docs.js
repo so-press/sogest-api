@@ -51,7 +51,7 @@ const spec = swaggerJsdoc({
         // Regroupe les tags par thème, en miroir des dossiers parents de la
         // collection Bruno (Scalar/Redoc lisent `x-tagGroups`).
         'x-tagGroups': [
-            { name: 'Authentification', tags: ['Auth', 'Personne', 'Trombinoscope', 'Upload', 'SSO Clients'] },
+            { name: 'Authentification', tags: ['Auth', 'Personne', 'Trombinoscope', 'Upload', 'SSO Clients', 'API Clients'] },
             { name: 'RH & Utilisateurs', tags: ['Users', 'Personnes', 'Equipes', 'Absences'] },
             { name: 'Éditorial', tags: ['Supports', 'Applications', 'Editions', 'Projets', 'Activités'] },
             { name: 'Notes de frais', tags: ['Notes de frais', 'Devises'] },
