@@ -19,7 +19,7 @@ export const routePath = '/login';
 // le démarrage du serveur quand le SSO n'est pas configuré. Mis en cache par
 // URI : chaque domaine custom (cf. clients SSO) a son propre JWKS set.
 const ssoJwksByUri = new Map();
-function getSsoJwks(jwksUri = process.env.SSO_JWKS_URI) {
+export function getSsoJwks(jwksUri = process.env.SSO_JWKS_URI) {
     if (!jwksUri) throw new Error('SSO is not configured');
     if (!ssoJwksByUri.has(jwksUri)) {
         ssoJwksByUri.set(jwksUri, createRemoteJWKSet(new URL(jwksUri)));
@@ -70,7 +70,7 @@ function applyCustomDomain(urlString, domain) {
  * @param {Object} user  ligne utilisateur (id, personne_id, email, level, nom)
  * @returns {Promise<{success: boolean, token: string, userId: number, user: Object}>}
  */
-async function buildUserSession(user) {
+export async function buildUserSession(user) {
     const avatar = await getUserAvatar(user);
     const can = await getUserCapabilities(user.id);
 

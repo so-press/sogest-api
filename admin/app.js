@@ -1,10 +1,10 @@
 // Administration des clients de l'API.
 //
-// Connexion : OpenID Connect, code + PKCE (S256), client public `sogest` sans
-// secret. L'id_token obtenu est échangé contre un JWT sogest par
-// POST /login/sso, qui sert ensuite à appeler /api-clients (ultra admin).
+// Connexion : OpenID Connect, code + PKCE (S256), client public dédié
+// (ADMIN_SSO_CLIENT_ID côté API, sans secret). L'id_token obtenu est échangé
+// contre un JWT sogest par POST /api-clients/auth/sso, qui sert ensuite à
+// appeler /api-clients (ultra admin).
 
-const CLIENT_ID = 'sogest';
 const API = new URL('../', location.href); // la page est servie sur <api>/admin/
 const REDIRECT_URI = location.origin + location.pathname;
 const K = { jwt: 'apiadmin.jwt', user: 'apiadmin.user', pkce: 'apiadmin.pkce' };
@@ -28,10 +28,12 @@ const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)))
 const aleatoire = (n = 32) => b64url(crypto.getRandomValues(new Uint8Array(n)));
 
 async function discovery() {
-  const cfg = await (await fetch(new URL(`login/config?clientId=${CLIENT_ID}`, API))).json();
+  const res = await fetch(new URL('api-clients/auth/config', API));
+  const cfg = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(cfg.message || `Configuration : HTTP ${res.status}`);
   const authority = cfg.authority.endsWith('/') ? cfg.authority : cfg.authority + '/';
   const oidc = await (await fetch(authority + '.well-known/openid-configuration')).json();
-  return { ...oidc, scope: cfg.scope || 'openid profile email' };
+  return { ...oidc, client_id: cfg.client_id, scope: cfg.scope || 'openid profile email' };
 }
 
 async function seConnecter() {
@@ -40,12 +42,12 @@ async function seConnecter() {
   const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
   const state = aleatoire(16);
   const nonce = aleatoire(16);
-  store.set(K.pkce, JSON.stringify({ verifier, state, nonce, token_endpoint: oidc.token_endpoint }));
+  store.set(K.pkce, JSON.stringify({ verifier, state, nonce, token_endpoint: oidc.token_endpoint, client_id: oidc.client_id }));
 
   const url = new URL(oidc.authorization_endpoint);
   url.search = new URLSearchParams({
     response_type: 'code',
-    client_id: CLIENT_ID,
+    client_id: oidc.client_id,
     redirect_uri: REDIRECT_URI,
     scope: oidc.scope,
     state,
@@ -80,7 +82,7 @@ async function terminerConnexion(params) {
       grant_type: 'authorization_code',
       code: params.get('code'),
       redirect_uri: REDIRECT_URI,
-      client_id: CLIENT_ID,
+      client_id: pkce.client_id,
       code_verifier: pkce.verifier,
     }),
   });
@@ -88,10 +90,10 @@ async function terminerConnexion(params) {
   if (!res.ok || !tok.id_token) throw new Error(tok.error_description || tok.error || `SSO : HTTP ${res.status}`);
   if (payloadJwt(tok.id_token).nonce !== pkce.nonce) throw new Error('id_token inattendu (nonce), recommencez.');
 
-  const login = await fetch(new URL('login/sso', API), {
+  const login = await fetch(new URL('api-clients/auth/sso', API), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id_token: tok.id_token, client_id: CLIENT_ID }),
+    body: JSON.stringify({ id_token: tok.id_token }),
   });
   const session = await login.json().catch(() => ({}));
   if (!login.ok || !session.token) throw new Error(session.message || session.error || `Connexion sogest : HTTP ${login.status}`);

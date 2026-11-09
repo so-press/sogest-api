@@ -1,4 +1,7 @@
 import express from 'express';
+import { jwtVerify } from 'jose';
+import { buildUserSession, getSsoJwks } from './login.js';
+import { getUserByEmail } from '../inc/rh/users.js';
 import {
   ajouterDomaine, configHistorique, creerClient, creerToken, getClient, listerClients,
   modifierClient, revoquerToken, supprimerClient, supprimerDomaine,
@@ -7,9 +10,108 @@ import { isUltraAdminRequest } from '../inc/core/access.js';
 import { handleResponse, httpError } from '../inc/core/response.js';
 
 const router = express.Router();
+// Connexion de la page /admin/ : montée sans authentification (cf. server.js).
+const publicRouter = express.Router();
 export const routePath = '/api-clients';
 // JWT seulement : un jeton applicatif ne gère pas les jetons applicatifs.
 export const requireAuth = true;
+
+/**
+ * Client OIDC de la page /admin/, **distinct** de celui des fronts
+ * (`SSO_AUDIENCE` n'est pas concerné) :
+ * - `ADMIN_SSO_CLIENT_ID` — client public (PKCE, sans secret) ; obligatoire,
+ *   sans lui la connexion admin est désactivée ;
+ * - `ADMIN_SSO_ISSUER`, `ADMIN_SSO_JWKS_URI` — par défaut `SSO_ISSUER` et
+ *   `SSO_JWKS_URI`.
+ */
+function adminSsoConfig() {
+  const clientId = (process.env.ADMIN_SSO_CLIENT_ID || '').trim();
+  const issuer = process.env.ADMIN_SSO_ISSUER || process.env.SSO_ISSUER;
+  const jwksUri = process.env.ADMIN_SSO_JWKS_URI || process.env.SSO_JWKS_URI;
+  if (!clientId || !issuer || !jwksUri) {
+    throw httpError(503, 'admin_sso_non_configure',
+      'Connexion admin non configurée (ADMIN_SSO_CLIENT_ID, et ADMIN_SSO_ISSUER / ADMIN_SSO_JWKS_URI ou SSO_ISSUER / SSO_JWKS_URI)');
+  }
+  return { clientId, issuer, jwksUri };
+}
+
+/**
+ * @openapi
+ * /api-clients/auth/config:
+ *   get:
+ *     tags: [API Clients]
+ *     summary: Configuration OIDC de la page /admin/
+ *     description: |
+ *       **Public.** Client OIDC dédié à la page d'administration
+ *       (`ADMIN_SSO_CLIENT_ID`, `ADMIN_SSO_ISSUER`), indépendant de `SSO_AUDIENCE`.
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Paramètres OIDC
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authority: { type: string }
+ *                 client_id: { type: string }
+ *                 scope:     { type: string }
+ *       503: { description: "`admin_sso_non_configure`" }
+ */
+publicRouter.get('/auth/config', handleResponse(async () => {
+  const { clientId, issuer } = adminSsoConfig();
+  return { authority: issuer, client_id: clientId, scope: 'openid profile email' };
+}));
+
+/**
+ * @openapi
+ * /api-clients/auth/sso:
+ *   post:
+ *     tags: [API Clients]
+ *     summary: Connexion à la page /admin/
+ *     description: |
+ *       **Public.** Échange un `id_token` émis pour `ADMIN_SSO_CLIENT_ID` contre
+ *       un JWT sogest (même réponse que `POST /login`), **réservé aux ultra admins**.
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id_token]
+ *             properties:
+ *               id_token: { type: string }
+ *     responses:
+ *       200: { description: Session créée }
+ *       400: { description: "`id_token_manquant`" }
+ *       401: { description: "`id_token_invalide`" }
+ *       403: { description: "`utilisateur_inconnu`, `non_habilite`" }
+ *       503: { description: "`admin_sso_non_configure`" }
+ */
+publicRouter.post('/auth/sso', handleResponse(async (req) => {
+  const { clientId, issuer, jwksUri } = adminSsoConfig();
+  const idToken = req.body?.id_token;
+  if (!idToken) throw httpError(400, 'id_token_manquant', 'id_token requis');
+
+  let claims;
+  try {
+    ({ payload: claims } = await jwtVerify(idToken, getSsoJwks(jwksUri), { issuer, audience: clientId }));
+  } catch (e) {
+    throw httpError(401, 'id_token_invalide', `id_token invalide : ${e.message}`);
+  }
+
+  const user = claims.email ? await getUserByEmail(claims.email) : null;
+  if (!user) throw httpError(403, 'utilisateur_inconnu', 'Aucun utilisateur sogest pour ce compte SSO');
+
+  const session = await buildUserSession(user);
+  if (!session.user.can?.ultraAdmin) {
+    throw httpError(403, 'non_habilite', `${user.nom || claims.email} n'est pas ultra admin`);
+  }
+  return session;
+}));
+
+export { publicRouter };
 
 // Réservé aux ultra admins (administration transverse).
 router.use((req, res, next) => {
